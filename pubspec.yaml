@@ -1,12 +1,15 @@
-﻿name: megaoverflowradio
+name: megaoverflowradio
 description: Mega Overflow Radio
 publish_to: 'none'
 version: 1.0.0+1
+
 environment:
   sdk: ">=3.0.0 <4.0.0"
+
 dependencies:
   flutter:
     sdk: flutter
+  cupertino_icons: ^1.0.8
   just_audio: ^0.9.46
   just_audio_background: ^0.0.1-beta.13
   audio_session: ^0.1.21
