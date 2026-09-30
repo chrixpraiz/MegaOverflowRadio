@@ -152,8 +152,6 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     const urls = [
       'http://stream.radiojar.com/kks1y4wm7s8uv',
       'https://stream.radiojar.com/kks1y4wm7s8uv.m3u',
-      'https://stream.radiojar.com/kks1y4wm7s8uv?nocache=${timestamp}',
-      'http://stream.radiojar.com/kks1y4wm7s8uv?nocache=${timestamp}',
       'https://stream.radiojar.com/kks1y4wm7s8uv',
       'https://www.radiojar.com/api/stations/kks1y4wm7s8uv/stream/'
       'https://stream.radiojar.com/kks1y4wm7s8uv.mp3',
