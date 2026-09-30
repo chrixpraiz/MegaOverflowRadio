@@ -5,23 +5,18 @@ workflows:
     environment:
       flutter: 3.24.5
       java: 17
-    scripts:
-      - name: Fix Manifest + Background Play
+    - name: Fix Manifest + Background Play
         script: |
           echo "=== Checking assets ==="
-          if [ ! -f assets/icon/app_icon.png ]; then
-            echo "ERROR: assets/icon/app_icon.png missing!"
-            exit 1
-          fi
-          if [ ! -f assets/icon/logo.png ]; then
-            echo "ERROR: assets/icon/logo.png missing!"
-            exit 1
-          fi
-          ls -lh assets/icon/
+          [ -f assets/icon/app_icon.png ] || { echo "MISSING app_icon.png"; exit 1; }
+          [ -f assets/icon/logo.png ]    || { echo "MISSING logo.png";    exit 1; }
+          ls -lh assets/icon/          
           echo "=== Assets OK ==="
 
           rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          flutter create . --platforms=android \
+            --project-name megaoverflowradio \
+            --org com.megaoverflow --template app
 
           python3 << 'PY'
           import pathlib, re
