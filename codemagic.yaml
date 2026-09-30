@@ -10,17 +10,17 @@ workflows:
         script: |
           ls -lh assets/icon/
           rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
           python3 << 'PY'
           import pathlib
           m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           txt = m.read_text()
           if "android.permission.INTERNET" not in txt:
-              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application')
+              txt = txt.replace("<application", ' <uses-permission android:name="android.permission.INTERNET" />\n <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n <uses-permission android:name="android.permission.RECORD_AUDIO" />\n <application')
           if "usesCleartextTraffic" not in txt:
-              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
+              txt = txt.replace("<application", ' <application android:usesCleartextTraffic="true"')
           if "APPLICATION_ID" not in txt:
-              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+              txt = txt.replace("<application", ' <application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
           m.write_text(txt)
           print(txt[:2000])
           print("Manifest OK")
