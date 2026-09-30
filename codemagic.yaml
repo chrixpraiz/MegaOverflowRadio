@@ -1,16 +1,33 @@
 workflows:
   flutter-android:
-    name: Full 12 Tabs
+    name: MOR ALL LOGIC FIXED
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix & Build
+      - name: Fix Gradle Project
         script: |
           rm -rf android
-          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          # Add permissions
+          python3 << 'PY'
+          import pathlib
+          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t = p.read_text()
+          if "INTERNET" not in t:
+              t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
+          if "usesCleartextTraffic" not in t:
+              t = t.replace("<application", '    <application android:usesCleartextTraffic="true" ')
+          p.write_text(t)
+          print("Manifest fixed")
+          PY
+      - name: Pub get
+        script: |
           flutter pub get
-          flutter build apk --release
+      - name: Build APK
+        script: |
+          flutter build apk --release --verbose
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
