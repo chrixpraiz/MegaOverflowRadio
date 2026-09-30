@@ -1,62 +1,38 @@
 ﻿workflows:
   flutter-android:
-    name: MOR - minSdk 23 Fix
-    max_build_duration: 60
+    name: MOR Flutter Full
     instance_type: mac_mini_m2
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix minSdk 23 + Stream
+      - name: Fix Permissions & Build
         script: |
-          cp lib/main.dart /tmp/my_main.dart
-          cp pubspec.yaml /tmp/pubspec.yaml
-          rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-          cp /tmp/my_main.dart lib/main.dart
-          cp /tmp/my_main.dart main.dart
-          # Force pubspec to 23 BEFORE icons run
-          sed -i '' 's/min_sdk_android: 21/min_sdk_android: 23/g' pubspec.yaml
-          sed -i '' 's/min_sdk_android: 21/min_sdk_android: 23/g' /tmp/pubspec.yaml || true
-          mkdir -p assets/icon
           python3 << 'PY'
           import pathlib, re
-          # Force build.gradle to 23
-          for p in pathlib.Path("android").rglob("build.gradle"):
-              if p.is_file():
-                  t = p.read_text()
-                  t = t.replace('flutter.minSdkVersion', '23')
-                  t = re.sub(r'minSdk\s+21', 'minSdk 23', t)
-                  t = re.sub(r'minSdkVersion\s+21', 'minSdkVersion 23', t)
-                  p.write_text(t)
-          # Fix local.properties
-          lp = pathlib.Path("android/local.properties")
-          if lp.exists():
-              txt = lp.read_text()
-              txt = re.sub(r'flutter.minSdkVersion=.*', 'flutter.minSdkVersion=23', txt)
-              if 'flutter.minSdkVersion' not in txt: txt += '\nflutter.minSdkVersion=23\n'
-              lp.write_text(txt)
-          # Manifest with cleartext + AdMob
-          manifest = """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET"/>
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-              <application android:label="MegaOverflow Radio" android:name="${applicationName}" android:icon="@mipmap/launcher_icon" android:usesCleartextTraffic="true">
-                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
-                      <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme"/>
-                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-                  </activity>
-                  <meta-data android:name="flutterEmbedding" android:value="2"/>
-                  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-1383337037822798~9185411751"/>
-              </application>
-          </manifest>"""
-          pathlib.Path("android/app/src/main/AndroidManifest.xml").write_text(manifest)
-          print("Fixed to minSdk 23")
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          if m.exists():
+            t = m.read_text()
+            if "INTERNET" not in t:
+              t = t.replace("<application", '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
+            if "usesCleartextTraffic" not in t:
+              t = t.replace("<application", '<application android:usesCleartextTraffic="true" ')
+            m.write_text(t)
+            print("Manifest fixed")
+          # Fix minSdk for just_audio
+          for p in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/local.properties")]:
+            if p.exists():
+              txt = p.read_text()
+              txt = re.sub(r"minSdkVersion.*", "minSdkVersion 23", txt)
+              txt = txt.replace("flutter.minSdkVersion", "23")
+              p.write_text(txt)
+          vg = pathlib.Path("android/variables.gradle")
+          if vg.exists():
+            txt = vg.read_text()
+            txt = re.sub(r"minSdkVersion\s*=\s*\d+", "minSdkVersion = 23", txt)
+            vg.write_text(txt)
           PY
           flutter pub get
-          dart run flutter_launcher_icons || true
-          # Force again after icons
-          python3 -c "import pathlib,re; p=pathlib.Path('android/app/build.gradle'); t=p.read_text(); t=re.sub(r'minSdk.*21','minSdk 23',t); p.write_text(t); print('forced 23 again')"
-      - name: Build APK
-        script: flutter build apk --release
+          flutter build apk --release --verbose
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
