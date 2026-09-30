@@ -102,7 +102,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       'https://stream.radiojar.com/kks1y4wm7s8uv',
       'https://stream.radiojar.com/kks1y4wm7s8uv.mp3',
       'http://stream.radiojar.com/kks1y4wm7s8uv',
-      'https://stream.radiojar.com/4h5xe6u0k3hvv',
+      'https://stream.radiojar.com/kks1y4wm7s8uv.m3u',
     ];
 
     for (var u in urls) {
