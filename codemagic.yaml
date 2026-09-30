@@ -1,38 +1,32 @@
 ﻿workflows:
   flutter-android:
-    name: MOR Flutter Full
+    name: MOR Flutter Full Fixed
     instance_type: mac_mini_m2
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix Permissions & Build
+      - name: Recreate Android Folder (Fix v1 embedding)
+        script: |
+          # Delete old broken android folder
+          rm -rf android
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+
+      - name: Add Permissions & Build
         script: |
           python3 << 'PY'
-          import pathlib, re
+          import pathlib
           m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          if m.exists():
-            t = m.read_text()
-            if "INTERNET" not in t:
-              t = t.replace("<application", '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
-            if "usesCleartextTraffic" not in t:
-              t = t.replace("<application", '<application android:usesCleartextTraffic="true" ')
-            m.write_text(t)
-            print("Manifest fixed")
-          # Fix minSdk for just_audio
-          for p in [pathlib.Path("android/app/build.gradle"), pathlib.Path("android/local.properties")]:
-            if p.exists():
-              txt = p.read_text()
-              txt = re.sub(r"minSdkVersion.*", "minSdkVersion 23", txt)
-              txt = txt.replace("flutter.minSdkVersion", "23")
-              p.write_text(txt)
-          vg = pathlib.Path("android/variables.gradle")
-          if vg.exists():
-            txt = vg.read_text()
-            txt = re.sub(r"minSdkVersion\s*=\s*\d+", "minSdkVersion = 23", txt)
-            vg.write_text(txt)
+          t = m.read_text()
+          if "INTERNET" not in t:
+            t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
+          if "usesCleartextTraffic" not in t:
+            t = t.replace("<application", '    <application android:usesCleartextTraffic="true" ')
+          m.write_text(t)
+          print("Manifest fixed with INTERNET + cleartext")
           PY
           flutter pub get
-          flutter build apk --release --verbose
+          flutter build apk --release
+
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
