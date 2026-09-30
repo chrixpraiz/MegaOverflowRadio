@@ -5,68 +5,79 @@ workflows:
     environment:
       flutter: 3.24.5
       java: 17
-  scripts:
-    - name: Fix Manifest + Background Play
-    script: |
-    echo "=== Checking assets ==="
-    if [ ! -f assets/icon/app_icon.png ]; then
-      echo "ERROR: assets/icon/app_icon.png missing!"
-      exit 1
-    fi
-    if [ ! -f assets/icon/logo.png ]; then
-      echo "ERROR: assets/icon/logo.png missing!"
-      exit 1
-    fi
-    ls -lh assets/icon/
-    echo "=== Assets OK ==="
+    scripts:
+      - name: Fix Manifest + Background Play
+        script: |
+          echo "=== Checking assets ==="
+          if [ ! -f assets/icon/app_icon.png ]; then
+            echo "ERROR: assets/icon/app_icon.png missing!"
+            exit 1
+          fi
+          if [ ! -f assets/icon/logo.png ]; then
+            echo "ERROR: assets/icon/logo.png missing!"
+            exit 1
+          fi
+          ls -lh assets/icon/
+          echo "=== Assets OK ==="
 
-    rm -rf android
-    flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          rm -rf android
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
 
-    python3 << 'PY'
-    import pathlib, re
+          python3 << 'PY'
+          import pathlib, re
 
-    m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-    txt = m.read_text()
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          txt = m.read_text()
 
-    perms = [
-        'android.permission.INTERNET',
-        'android.permission.ACCESS_NETWORK_STATE',
-        'android.permission.WAKE_LOCK',
-        'android.permission.FOREGROUND_SERVICE',
-        'android.permission.BLUETOOTH',
-        'android.permission.BLUETOOTH_CONNECT',
-    ]
+          perms = [
+              'android.permission.INTERNET',
+              'android.permission.ACCESS_NETWORK_STATE',
+              'android.permission.WAKE_LOCK',
+              'android.permission.FOREGROUND_SERVICE',
+              'android.permission.BLUETOOTH',
+              'android.permission.BLUETOOTH_CONNECT',
+          ]
 
-    perm_xml = "\n".join(
-        f'    <uses-permission android:name="{p}" />' for p in perms
-        if p not in txt
-    )
+          perm_xml = "\n".join(
+              f'    <uses-permission android:name="{p}" />' for p in perms
+              if p not in txt
+          )
 
-    # Insert permissions BEFORE <application> in one shot
-    if perm_xml:
-        txt = txt.replace("<application", perm_xml + "\n    <application", 1)
+          if perm_xml:
+              txt = txt.replace("<application", perm_xml + "\n    <application", 1)
 
-    # usesCleartextTraffic — insert as attribute on <application> only if absent
-    if "usesCleartextTraffic" not in txt:
-        txt = txt.replace("<application", '<application android:usesCleartextTraffic="true"', 1)
+          if "usesCleartextTraffic" not in txt:
+              txt = txt.replace("<application", '<application android:usesCleartextTraffic="true"', 1)
 
-    # AdMob APPLICATION_ID meta-data — insert as first child of <application>
-    if "com.google.android.gms.ads.APPLICATION_ID" not in txt:
-        meta = (
-            '\n        <meta-data '
-            'android:name="com.google.android.gms.ads.APPLICATION_ID" '
-            'android:value="ca-app-pub-3940256099942544~3347511713"/>'
-        )
-        # Insert right after the first opening <application ...>
-        txt = re.sub(
-            r'(<application[^>]*>)',
-            r'\1' + meta,
-            txt,
-            count=1,
-        )
+          if "com.google.android.gms.ads.APPLICATION_ID" not in txt:
+              meta = (
+                  '\n        <meta-data '
+                  'android:name="com.google.android.gms.ads.APPLICATION_ID" '
+                  'android:value="ca-app-pub-3940256099942544~3347511713"/>'
+              )
+              txt = re.sub(
+                  r'(<application[^>]*>)',
+                  r'\1' + meta,
+                  txt,
+                  count=1,
+              )
 
-    m.write_text(txt)
-    print("=== Manifest patched ===")
-    print(m.read_text())
-    PY
+          m.write_text(txt)
+          print("=== Manifest patched ===")
+          print(m.read_text())
+          PY
+
+      - name: Build APK
+        script: |
+          flutter pub get
+          flutter build apk --release
+
+      - name: Verify assets in APK
+        script: |
+          unzip -l build/app/outputs/flutter-apk/app-release.apk | grep -i "assets/icon" || {
+            echo "ERROR: icons not bundled in APK!"
+            exit 1
+          }
+
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
