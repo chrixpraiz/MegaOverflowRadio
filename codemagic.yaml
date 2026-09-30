@@ -1,26 +1,26 @@
 workflows:
   flutter-android-logo:
-    name: MOR With Logo FIXED
+    name: MOR Logo Fixed
     instance_type: mac_mini_m2
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix Android Manifest + Add Logo
+      - name: Fix Android Manifest
         script: |
-          mkdir -p assets/images
+          mkdir -p assets/icon
           rm -rf android
-          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
           python3 << 'PY'
           import pathlib
           m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           txt = m.read_text()
-          if "INTERNET" not in txt:
-              txt = txt.replace("<application", ' <uses-permission android:name="android.permission.INTERNET" />\n <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n <application')
+          if "android.permission.INTERNET" not in txt:
+              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
           if "usesCleartextTraffic" not in txt:
-              txt = txt.replace("<application", ' <application android:usesCleartextTraffic="true"')
+              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
           if "APPLICATION_ID" not in txt:
-              txt = txt.replace("<application", '<application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>')
+              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
           m.write_text(txt)
           print("Manifest OK")
           PY
