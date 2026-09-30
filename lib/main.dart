@@ -134,6 +134,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     }
     setState(() => isLoading = true);
     const urls = [
+      'http://stream.radiojar.com/kks1y4wm7s8uv',
       'https://stream.radiojar.com/kks1y4wm7s8uv',
       'https://stream.radiojar.com/kks1y4wm7s8uv.mp3',
     ];
@@ -179,7 +180,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15)),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(15),
-                        child: Image.asset('assets/images/logo.png',
+                        child: Image.asset('assets/icon/logo.png',
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => const Icon(Icons.mic, size: 40, color: Colors.deepPurple),
                         ),
@@ -253,8 +254,8 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
                     decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.black, width: 5)),
                     child: ClipOval(
                       child: cover.isNotEmpty
-                         ? Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Image.asset('assets/images/logo.png', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.orange, child: const Icon(Icons.mic))))
-                          : Image.asset('assets/images/logo.png', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.orange, child: const Icon(Icons.mic, color: Colors.white, size: 40))),
+                         ? Image.network(cover, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Image.asset('assets/icon/logo.png', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.orange, child: const Icon(Icons.mic))))
+                          : Image.asset('assets/icon/logo.png', fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.orange, child: const Icon(Icons.mic, color: Colors.white, size: 40))),
                     ),
                   ),
                 ),
@@ -342,7 +343,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   }
 
   Widget _partnersView() => SingleChildScrollView(padding: const EdgeInsets.all(16), child: Column(children: [
-    ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.asset('assets/images/logo.png', width: 80, height: 80, errorBuilder: (_, __, ___) => const Icon(Icons.handshake, size: 60, color: Colors.orange))),
+    ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.asset('assets/icon/logo.png', width: 80, height: 80, errorBuilder: (_, __, ___) => const Icon(Icons.handshake, size: 60, color: Colors.orange))),
     const SizedBox(height: 12), const Text('Partner With Mega Overflow', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)), const SizedBox(height: 8), const Text('Support 24/7 gospel broadcast worldwide', textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 12)), const SizedBox(height: 20),
     _tier('Bronze Partner', '₦5,000/month', Colors.brown), _tier('Silver Partner', '₦20,000/month', Colors.grey), _tier('Gold Partner', '₦100,000/month', Colors.amber),
     const SizedBox(height: 20), SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () async { final uri = Uri.parse('https://paystack.com/pay/megaoverflow'); if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Become a Partner', style: TextStyle(fontWeight: FontWeight.bold)))),
@@ -364,9 +365,9 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   ]));
 
   Widget _aboutView() => ListView(padding: const EdgeInsets.all(16), children: [
-    Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF7B1FA2), Color(0xFFFF6F00)]), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Image.asset('assets/images/logo.png', width: 40, height: 40, errorBuilder: (_, __, ___) => const Icon(Icons.mic, color: Colors.white)), const SizedBox(width: 10), const Text('Our Divine Mandate', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))]), const SizedBox(height: 10), const Text('Mega Overflow Radio is a premier 24/7 internet radio station dedicated to delivering transformative gospel broadcasts: Word, Worship, and Wealth encounters.', style: TextStyle(color: Colors.white, fontSize: 12.5))])),
+    Container(padding: const EdgeInsets.all(18), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF7B1FA2), Color(0xFFFF6F00)]), borderRadius: BorderRadius.circular(16)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Image.asset('assets/icon/logo.png', width: 40, height: 40, errorBuilder: (_, __, ___) => const Icon(Icons.mic, color: Colors.white)), const SizedBox(width: 10), const Text('Our Divine Mandate', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white))]), const SizedBox(height: 10), const Text('Mega Overflow Radio is a premier 24/7 internet radio station dedicated to delivering transformative gospel broadcasts: Word, Worship, and Wealth encounters.', style: TextStyle(color: Colors.white, fontSize: 12.5))])),
     const SizedBox(height: 12), _aboutCard('Vision', 'To saturate the airwaves with the overflow of God\'s presence and power, reaching every home worldwide.'), _aboutCard('Mission', '24/7 Word, Worship, and Wealth to every nation through quality broadcasting.'),
-    _aboutCard('Contact', 'Email: gcmega1@gmail.com\nPhone: +234 000 000 0000\nLocation: Akwa Ibom, Nigeria\nStation: Mega Overflow Radio'),
+    _aboutCard('Contact', 'Email: gcmega1@gmail.com\nPhone: +2348039683555\nLocation: Abuja, Nigeria\nStation: Mega Overflow Radio'),
   ]);
 
   Widget _aboutCard(String t, String d) => Card(color: const Color(0xFF141414), margin: const EdgeInsets.only(bottom: 10), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(t, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 13)), const SizedBox(height: 6), Text(d, style: const TextStyle(color: Colors.white70, fontSize: 12))])));
@@ -374,7 +375,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
   InputDecoration _inputDec(String label) => InputDecoration(labelText: label, filled: true, fillColor: const Color(0xFF141414), border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14));
 
   Widget _miniPlayer() => Container(height: 66, padding: const EdgeInsets.symmetric(horizontal: 12), decoration: const BoxDecoration(color: Color(0xFF121212), border: Border(top: BorderSide(color: Colors.white10))), child: Row(children: [
-    ClipRRect(borderRadius: BorderRadius.circular(6), child: cover.isNotEmpty? Image.network(cover, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 44, height: 44, color: Colors.orange, child: const Icon(Icons.mic, size: 20)))) : Image.asset('assets/images/logo.png', width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 44, height: 44, color: Colors.orange, child: const Icon(Icons.mic, size: 20)))),
+    ClipRRect(borderRadius: BorderRadius.circular(6), child: cover.isNotEmpty? Image.network(cover, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Image.asset('assets/icon/logo.png', width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 44, height: 44, color: Colors.orange, child: const Icon(Icons.mic, size: 20)))) : Image.asset('assets/icon/logo.png', width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 44, height: 44, color: Colors.orange, child: const Icon(Icons.mic, size: 20)))),
     const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)), Text(artist, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.purpleAccent, fontSize: 9))])),
     isLoading? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)) : IconButton(onPressed: togglePlay, icon: Icon(isPlaying? Icons.pause_circle_filled : Icons.play_circle_filled, size: 42, color: Colors.deepPurple)),
   ]));
