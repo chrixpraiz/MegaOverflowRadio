@@ -1,46 +1,29 @@
 ﻿workflows:
-  mor-capacitor-apk:
-    name: MOR - Web to APK Fixed
-    max_build_duration: 60
+  mor-capacitor:
+    name: MOR Web to APK
     instance_type: mac_mini_m2
     environment:
       node: 22.13.0
       java: 21
     scripts:
-      - name: Install
+      - name: Build Web + APK
         script: |
           npm install
-          npm install @capacitor/core @capacitor/cli @capacitor/android --save
-
-      - name: Build Web
-        script: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
           npm run build
-
-      - name: Build APK with Capacitor
-        script: |
-          npx cap init "Mega Overflow Radio" com.megaoverflow.radio --web-dir=dist --npm-client=npm || true
+          npx cap init "Mega Overflow Radio" com.megaoverflow.radio --web-dir=dist || true
           npx cap add android || true
           npx cap copy android
           python3 << 'PY'
           import pathlib, re
-          manifest = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          txt = manifest.read_text()
-          # Add internet
-          if "INTERNET" not in txt:
-              txt = txt.replace("<application", '<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
-          # Allow https stream
-          if "usesCleartextTraffic" not in txt:
-              txt = txt.replace("<application", '<application android:usesCleartextTraffic="true" ')
-          manifest.write_text(txt)
-          print("Manifest fixed for Radiojar")
-          # Fix minSdk
-          vg = pathlib.Path("android/variables.gradle")
-          if vg.exists():
-              t = vg.read_text()
-              t = re.sub(r'minSdkVersion\s*=\s*\d+', 'minSdkVersion = 23', t)
-              vg.write_text(t)
+          p=pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t=p.read_text()
+          if "INTERNET" not in t:
+            t=t.replace("<application", '<uses-permission android:name="android.permission.INTERNET" />\n    <application')
+          if "usesCleartextTraffic" not in t:
+            t=t.replace("<application", '<application android:usesCleartextTraffic="true" ')
+          p.write_text(t)
           PY
           cd android && ./gradlew assembleRelease
-
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
