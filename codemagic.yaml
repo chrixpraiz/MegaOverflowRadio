@@ -1,32 +1,33 @@
 ﻿workflows:
   flutter-android:
-    name: MOR Flutter Full Fixed
+    name: MOR ALL LOGIC FIXED
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Recreate Android Folder (Fix v1 embedding)
+      - name: Fix Gradle Project
         script: |
-          # Delete old broken android folder
           rm -rf android
           flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-
-      - name: Add Permissions & Build
-        script: |
+          # Add permissions
           python3 << 'PY'
           import pathlib
-          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          t = m.read_text()
+          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t = p.read_text()
           if "INTERNET" not in t:
-            t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
+              t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
           if "usesCleartextTraffic" not in t:
-            t = t.replace("<application", '    <application android:usesCleartextTraffic="true" ')
-          m.write_text(t)
-          print("Manifest fixed with INTERNET + cleartext")
+              t = t.replace("<application", '    <application android:usesCleartextTraffic="true" ')
+          p.write_text(t)
+          print("Manifest fixed")
           PY
+      - name: Pub get
+        script: |
           flutter pub get
-          flutter build apk --release
-
+      - name: Build APK
+        script: |
+          flutter build apk --release --verbose
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
