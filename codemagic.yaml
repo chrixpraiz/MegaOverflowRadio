@@ -1,3 +1,10 @@
+workflows:
+  flutter-android:
+    name: MOR Background + Bluetooth
+    instance_type: mac_mini_m2
+    environment:
+      flutter: 3.24.5
+      java: 17
 - name: Fix Manifest + Background Play
   script: |
     echo "=== Checking assets ==="
