@@ -12,6 +12,11 @@ void main() {
   runApp(const MegaOverflowApp());
 }
 
+const String STATION_ID = 'kks1y4wm7s8uv';
+const String STREAM_URL = 'https://stream.radiojar.com/$STATION_ID';
+const String META_URL = 'https://www.radiojar.com/api/stations/$STATION_ID/now_playing/';
+const String HISTORY_URL = 'https://www.radiojar.com/api/stations/$STATION_ID/tracks/';
+
 class MegaOverflowApp extends StatelessWidget {
   const MegaOverflowApp({super.key});
   @override
@@ -59,19 +64,30 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     Icons.chat_bubble, Icons.handshake, Icons.groups, Icons.favorite, Icons.info
   ];
 
-  final List<Map<String, String>> events = [
-    {'title': 'Morning Overflow', 'day': 'Mon - Fri', 'time': '5:00 AM - 7:00 AM', 'host': 'Pastor Chris Praiz'},
-    {'title': 'Worship Encounter', 'day': 'Mon - Fri', 'time': '12:00 PM - 1:00 PM', 'host': 'Min. Damitha'},
-    {'title': 'Wealth Wisdom', 'day': 'Wed & Fri', 'time': '7:00 PM - 8:30 PM', 'host': 'Pastor Chris'},
-    {'title': 'Sunday Prophetic Service', 'day': 'Sundays', 'time': '8:00 AM - 11:30 AM', 'host': 'Pastor Chris Praiz'},
+  final List<Map<String, dynamic>> events = [
+    {'title': 'Morning Overflow', 'day': 'Mon - Fri', 'time': '5:00 AM - 7:00 AM', 'host': 'Pastor Chris Praiz', 'desc': 'Start your day with power-packed Word and worship', 'image': 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?q=80&w=800'},
+    {'title': 'Worship Encounter', 'day': 'Mon - Fri', 'time': '12:00 PM - 1:00 PM', 'host': 'Min. Damitha', 'desc': 'Midday worship to lift your spirit', 'image': 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800'},
+    {'title': 'Wealth Wisdom', 'day': 'Wed & Fri', 'time': '7:00 PM - 8:30 PM', 'host': 'Pastor Chris', 'desc': 'Kingdom principles for financial overflow', 'image': 'https://images.unsplash.com/photo-1553729459-efe14ef6055d?q=80&w=800'},
+    {'title': 'Sunday Prophetic Service', 'day': 'Sundays', 'time': '8:00 AM - 11:30 AM', 'host': 'Pastor Chris Praiz', 'desc': 'Prophetic impartation and miracles', 'image': 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?q=80&w=800'},
   ];
 
-  final List<Map<String, String>> sermons = [
-    {'title': 'The Overflow Anointing', 'preacher': 'Pastor Chris Praiz', 'duration': '45:23'},
-    {'title': 'Wealth Transfer', 'preacher': 'Pastor Chris Praiz', 'duration': '38:12'},
-    {'title': 'Worship That Opens Heaven', 'preacher': 'Min. Damitha', 'duration': '52:10'},
-    {'title': 'Faith For Overflow', 'preacher': 'Pastor Chris Praiz', 'duration': '41:15'},
+  final sermons = [
+    {'title': 'The Overflow Anointing', 'preacher': 'Pastor Chris Praiz', 'duration': '45:23', 'image': 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65'},
+    {'title': 'Wealth Transfer', 'preacher': 'Pastor Chris Praiz', 'duration': '38:12', 'image': 'https://images.unsplash.com/photo-1527529482837-4698179dc6ce'},
+    {'title': 'Worship That Opens Heaven', 'preacher': 'Min. Damitha', 'duration': '52:10', 'image': 'https://images.unsplash.com/photo-1516450360452-9312abbf6f7e'},
   ];
+
+
+  final ebooks = [
+    {'title': 'Overflow Principles', 'author': 'Chris Praiz', 'cover': 'https://images.unsplash.com/photo-1544947950-fa07a98d237f'},
+    {'title': 'Kingdom Wealth', 'author': 'Chris Praiz', 'cover': 'https://images.unsplash.com/photo-1512820790803-83ca734da794'},
+  ];
+
+  final audiobooks = [
+    {'title': 'Purpose Driven Life', 'author': 'Rick Warren', 'cover': 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e'},
+    {'title': 'The Anointing', 'author': 'Benny Hinn', 'cover': 'https://images.unsplash.com/photo-1512820790803-83ca734da794'},
+  ];
+
 
   final List<String> bibleBooks = [
     'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Joshua','Judges','Ruth','1 Samuel','2 Samuel',
@@ -135,7 +151,11 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     setState(() => isLoading = true);
     const urls = [
       'http://stream.radiojar.com/kks1y4wm7s8uv',
+      'https://stream.radiojar.com/kks1y4wm7s8uv.m3u',
+      'https://stream.radiojar.com/kks1y4wm7s8uv?nocache=${timestamp}',
+      'http://stream.radiojar.com/kks1y4wm7s8uv?nocache=${timestamp}',
       'https://stream.radiojar.com/kks1y4wm7s8uv',
+      'https://www.radiojar.com/api/stations/kks1y4wm7s8uv/stream/'
       'https://stream.radiojar.com/kks1y4wm7s8uv.mp3',
     ];
     for (var u in urls) {
