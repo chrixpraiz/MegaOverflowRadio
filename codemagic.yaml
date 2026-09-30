@@ -1,28 +1,30 @@
 workflows:
   flutter-android:
-    name: MOR FINAL FIX
+    name: MOR Background + Bluetooth
     instance_type: mac_mini_m2
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix Manifest - NO TYPO
+      - name: Fix Manifest + Background Play
         script: |
           ls -lh assets/icon/
           rm -rf android
-          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
           python3 << 'PY'
           import pathlib
           m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           txt = m.read_text()
           if "android.permission.INTERNET" not in txt:
-              txt = txt.replace("<application", ' <uses-permission android:name="android.permission.INTERNET" />\n <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n <uses-permission android:name="android.permission.RECORD_AUDIO" />\n <application')
+              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.BLUETOOTH" />\n    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />\n    <application')
           if "usesCleartextTraffic" not in txt:
-              txt = txt.replace("<application", ' <application android:usesCleartextTraffic="true"')
+              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
           if "APPLICATION_ID" not in txt:
-              txt = txt.replace("<application", ' <application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          # Add foreground service for background audio
+          if "FOREGROUND_SERVICE" not in txt and "foregroundServiceType" not in txt:
+              txt = txt.replace('android:label="megaoverflowradio"', 'android:label="megaoverflowradio" android:usesCleartextTraffic="true"')
           m.write_text(txt)
-          print(txt[:2000])
           print("Manifest OK")
           PY
       - name: Build APK
