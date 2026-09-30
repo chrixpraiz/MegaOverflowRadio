@@ -5,6 +5,7 @@ workflows:
     environment:
       flutter: 3.24.5
       java: 17
+    scripts:
 - name: Fix Manifest + Background Play
   script: |
     echo "=== Checking assets ==="
