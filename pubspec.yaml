@@ -13,3 +13,5 @@ dependencies:
   google_mobile_ads: ^5.1.0
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
