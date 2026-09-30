@@ -1,33 +1,32 @@
 workflows:
-  flutter-android:
-    name: MOR ALL LOGIC FIXED
+  flutter-android-logo:
+    name: MOR With Logo FIXED
     instance_type: mac_mini_m2
-    max_build_duration: 60
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: Fix Gradle Project
+      - name: Fix Android Manifest + Add Logo
         script: |
+          mkdir -p assets/images
           rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-          # Add permissions
+          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
           python3 << 'PY'
           import pathlib
-          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          t = p.read_text()
-          if "INTERNET" not in t:
-              t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <application')
-          if "usesCleartextTraffic" not in t:
-              t = t.replace("<application", '    <application android:usesCleartextTraffic="true" ')
-          p.write_text(t)
-          print("Manifest fixed")
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          txt = m.read_text()
+          if "INTERNET" not in txt:
+              txt = txt.replace("<application", ' <uses-permission android:name="android.permission.INTERNET" />\n <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n <application')
+          if "usesCleartextTraffic" not in txt:
+              txt = txt.replace("<application", ' <application android:usesCleartextTraffic="true"')
+          if "APPLICATION_ID" not in txt:
+              txt = txt.replace("<application", '<application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>')
+          m.write_text(txt)
+          print("Manifest OK")
           PY
-      - name: Pub get
-        script: |
-          flutter pub get
       - name: Build APK
         script: |
-          flutter build apk --release --verbose
+          flutter pub get
+          flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
