@@ -170,24 +170,63 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     }
   }
 
+    Future<String> getFreshStreamUrl() async {
+    // Try to get tokenized URL from Radiojar API
+    try {
+      final res = await http.get(Uri.parse('https://www.radiojar.com/api/stations/$STATION_ID/'));
+      if(res.statusCode==200){
+        final d = json.decode(res.body);
+        // API returns stream url with token
+        if(d['stream_url']!=null) return d['stream_url'];
+        if(d['relays']!=null && d['relays'].isNotEmpty) return d['relays'][0]['url'];
+      }
+    } catch(_){}
+    // Fallback to direct URL - will redirect to token URL
+    return 'https://n0b.radiojar.com/$STATION_ID?rj-ttl=5&rj-tok=AAABq...';
+  }
+
   Future<void> togglePlay() async {
     if(isPlaying){ await player.pause(); setState(()=>isPlaying=false); vinylController.stop(); return; }
     setState(()=>isLoading=true);
-    for(var url in streamUrls){
+    
+    // LIST TO TRY - includes your 2 URLs + token
+    List<String> toTry = [];
+    try {
+      String fresh = await getFreshStreamUrl();
+      toTry.add(fresh);
+    } catch(_){}
+    toTry.addAll([
+      'http://stream.radiojar.com/kks1y4wm7s8uv',
+      'https://stream.radiojar.com/kks1y4wm7s8uv',
+      'http://n0b.radiojar.com/kks1y4wm7s8uv?rj-ttl=5&rj-tok=AAAB',
+      'https://n0b.radiojar.com/kks1y4wm7s8uv?rj-ttl=5&rj-tok=AAABoPX7ST8Ahl14FPOch-YV8A',
+    ]);
+
+    for(var url in toTry){
       try {
+        print('Trying: $url');
         await player.setAudioSource(AudioSource.uri(Uri.parse(url), tag: MediaItem(id: 'live', title: 'Mega Overflow Radio', artist: 'LIVE - $listeners listeners')));
         await player.setVolume(isMuted?0:volume);
         await player.play();
         setState((){isPlaying=true; isLoading=false; vinylController.repeat();});
         return;
-      } catch(_){ continue; }
+      } catch(e){ print('Failed $url : $e'); continue; }
     }
     setState(()=>isLoading=false);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stream offline'), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stream offline - check Radiojar dashboard is ON AIR'), backgroundColor: Colors.red));
   }
 
-  Widget safeLogo(double w, double h, {double radius=12}) {
-    return ClipRRect(borderRadius: BorderRadius.circular(radius), child: Image.asset('assets/icon/app_icon.png', width: w, height: h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Image.asset('assets/icon/logo.png', width: w, height: h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: w, height: h, color: Colors.deepPurple, child: const Icon(Icons.radio, color: Colors.white)))));
+    Widget safeLogo(double w, double h, {double radius=12}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius), 
+      child: Image.asset('assets/icon/app_icon.png', width: w, height: h, fit: BoxFit.cover, 
+        errorBuilder: (_, __, ___) => Container(
+          width: w, height: h, 
+          decoration: BoxDecoration(color: Colors.deepPurple, borderRadius: BorderRadius.circular(radius)),
+          child: Center(child: Text('MOR', style: TextStyle(fontSize: w*0.3, fontWeight: FontWeight.w900, color: Colors.white))),
+        )
+      )
+    );
   }
 
   @override
