@@ -6,6 +6,38 @@ workflows:
       flutter: 3.24.5
       java: 17
     scripts:
+      - name: DIAGNOSTIC - Show CI environment
+        script: |
+          echo "========== WORKING DIR =========="
+          pwd
+          ls -la
+
+          echo ""
+          echo "========== GIT STATE =========="
+          git log -1 --oneline
+          git rev-parse HEAD
+          git status
+
+          echo ""
+          echo "========== ALL MainActivity FILES =========="
+          find . -name "MainActivity.*" -not -path "./build/*" -not -path "./.dart_tool/*" 2>/dev/null
+
+          echo ""
+          echo "========== CONTENT OF EACH MainActivity =========="
+          find . -name "MainActivity.kt" -not -path "./build/*" -not -path "./.dart_tool/*" -exec echo "--- {} ---" \; -exec cat {} \;
+
+          echo ""
+          echo "========== ANY io.flutter.app REFERENCES =========="
+          grep -rn 'io\.flutter\.app' --include="*.kt" --include="*.java" --include="*.gradle" . 2>/dev/null | grep -v '/build/' | grep -v '/.dart_tool/' || echo "NONE FOUND"
+
+          echo ""
+          echo "========== ANDROID FOLDER EXISTS? =========="
+          ls -la android/ 2>/dev/null || echo "NO android/ FOLDER"
+
+          echo ""
+          echo "========== android/app/src/main/ FILES =========="
+          find android/app/src/main -type f 2>/dev/null | sort | head -50
+
       - name: Verify Assets
         script: |
           echo "=== Checking assets ==="
@@ -17,7 +49,10 @@ workflows:
       - name: Verify Android Project
         script: |
           echo "=== MainActivity ==="
-          find android/app/src/main -name "MainActivity.*" -exec cat {} \;
+          ACTIVITY=$(find android/app/src/main -name "MainActivity.kt" -o -name "MainActivity.java" | head -n1)
+          [ -n "$ACTIVITY" ] || { echo "ERROR: MainActivity not found"; exit 1; }
+          echo "File: $ACTIVITY"
+          cat "$ACTIVITY"
 
           echo ""
           echo "=== Icons ==="
@@ -35,8 +70,7 @@ workflows:
           echo "=== Verify v2 embedding ==="
           grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml \
             || { echo "ERROR: flutterEmbedding missing"; exit 1; }
-          grep -q 'io.flutter.embedding.android.FlutterActivity' \
-            $(find android/app/src/main -name "MainActivity.kt" -o -name "MainActivity.java") \
+          grep -q 'io.flutter.embedding.android.FlutterActivity' "$ACTIVITY" \
             || { echo "ERROR: MainActivity not on v2 embedding"; exit 1; }
           echo "OK: v2 embedding confirmed"
 
