@@ -1,52 +1,50 @@
 workflows:
   flutter-android:
-    name: MOR KOTLIN FIX
+    name: MOR FINAL WITH ICON
     instance_type: mac_mini_m2
     environment:
       flutter: 3.22.3
       java: 17
     scripts:
-      - name: Create Android
+      - name: Create Android + Icon Fix
         script: |
           rm -rf android
           flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          
+          # GENERATE ICON FROM assets/icon/app_icon.png WITHOUT flutter_launcher_icons command
+          echo "Copying logo to mipmap..."
+          for d in android/app/src/main/res/mipmap-*; do
+            if [ -f "assets/icon/app_icon.png" ]; then
+              cp assets/icon/app_icon.png $d/ic_launcher.png
+              cp assets/icon/app_icon.png $d/launcher_icon.png || true
+            fi
+          done
+          ls android/app/src/main/res/mipmap-hdpi/
 
-      - name: Fix Kotlin + Manifest + AdMob
-        script: |
-          # 1. Fix Kotlin version to 1.9.22
-          echo "Fixing Kotlin..."
-          if [ -f android/settings.gradle ]; then
-            sed -i '' 's/org.jetbrains.kotlin.android.*1.7.*/org.jetbrains.kotlin.android" version "1.9.22" apply false/' android/settings.gradle || sed -i 's/1\.7\..*/1.9.22"/' android/settings.gradle
-            cat android/settings.gradle
-          fi
-          if [ -f android/build.gradle ]; then
-            sed -i '' "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/" android/build.gradle || echo "ext.kotlin_version = '1.9.22'" >> android/build.gradle
-            cat android/build.gradle
-          fi
-          # For new Flutter template (build.gradle.kts)
+          # Fix Kotlin 1.9.22
           find android -name "*.gradle*" -type f -exec sed -i '' 's/1\.7\.10/1.9.22/g; s/1\.8\.10/1.9.22/g; s/1\.7\.1/1.9.22/g' {} \; 2>/dev/null || true
 
-          # 2. Inject permissions + AdMob + cleartext
+          # Fix Manifest + AdMob + Cleartext for http://stream.radiojar.com
           python3 << 'PY'
           import pathlib
           p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
           t = p.read_text()
           if "FOREGROUND_SERVICE_MEDIA_PLAYBACK" not in t:
               t = t.replace("<application", '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
+          t = t.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
           if "usesCleartextTraffic" not in t:
-              t = t.replace("<application", '<application android:usesCleartextTraffic="true" ')
+              t = t.replace("<application", '<application android:usesCleartextTraffic="true"')
           if "APPLICATION_ID" not in t:
               t = t.replace("<application", '<application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
-          # Fix icon name - template uses ic_launcher
           t = t.replace("@mipmap/launcher_icon", "@mipmap/ic_launcher")
           p.write_text(t)
-          print(t)
+          print("Manifest OK")
           PY
 
       - name: Build APK
         script: |
           flutter pub get
-          flutter build apk --release --verbose
+          flutter build apk --release
 
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
