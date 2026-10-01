@@ -1,139 +1,34 @@
 workflows:
   flutter-android:
-    name: MOR Background + Bluetooth
+    name: MOR v1 Fix
     instance_type: mac_mini_m2
     environment:
       flutter: 3.24.5
       java: 17
     scripts:
-      - name: DIAGNOSTIC - Show CI environment
+      - name: Fix Android + Manifest
         script: |
-          echo "========== WORKING DIR =========="
-          pwd
-          ls -la
-
-          echo ""
-          echo "========== GIT STATE =========="
-          git log -1 --oneline
-          git rev-parse HEAD
-          git status
-
-          echo ""
-          echo "========== ALL MainActivity FILES =========="
-          find . -name "MainActivity.*" -not -path "./build/*" -not -path "./.dart_tool/*" 2>/dev/null
-
-          echo ""
-          echo "========== CONTENT OF EACH MainActivity =========="
-          find . -name "MainActivity.kt" -not -path "./build/*" -not -path "./.dart_tool/*" -exec echo "--- {} ---" \; -exec cat {} \;
-
-          echo ""
-          echo "========== ANY io.flutter.app REFERENCES =========="
-          grep -rn 'io\.flutter\.app' --include="*.kt" --include="*.java" --include="*.gradle" . 2>/dev/null | grep -v '/build/' | grep -v '/.dart_tool/' || echo "NONE FOUND"
-
-          echo ""
-          echo "========== ANDROID FOLDER EXISTS? =========="
-          ls -la android/ 2>/dev/null || echo "NO android/ FOLDER"
-
-          echo ""
-          echo "========== android/app/src/main/ FILES =========="
-          find android/app/src/main -type f 2>/dev/null | sort | head -50
-
-      - name: Verify Assets
-        script: |
-          echo "=== Checking assets ==="
-          [ -f assets/icon/app_icon.png ] || { echo "ERROR: assets/icon/app_icon.png missing"; exit 1; }
-          [ -f assets/icon/logo.png ]    || { echo "ERROR: assets/icon/logo.png missing";    exit 1; }
           ls -lh assets/icon/
-          echo "=== Assets OK ==="
-
-      - name: Verify Android Project
+          rm -rf android
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          # Fix manifest
+          python3 << 'PY'
+          import pathlib
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          txt = m.read_text()
+          if "INTERNET" not in txt:
+              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
+          if "usesCleartextTraffic" not in txt:
+              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
+          if "APPLICATION_ID" not in txt:
+              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          m.write_text(txt)
+          print("Manifest OK")
+          PY
+      - name: Upgrade deps + Build
         script: |
-          echo "=== MainActivity ==="
-          ACTIVITY=$(find android/app/src/main -name "MainActivity.kt" -o -name "MainActivity.java" | head -n1)
-          [ -n "$ACTIVITY" ] || { echo "ERROR: MainActivity not found"; exit 1; }
-          echo "File: $ACTIVITY"
-          cat "$ACTIVITY"
-
-          echo ""
-          echo "=== Icons ==="
-          find android/app/src/main/res -name "ic_launcher*" -type f | sort
-          COUNT=$(find android/app/src/main/res -name "ic_launcher*" -type f | wc -l | tr -d ' ')
-          echo "Found $COUNT icon files"
-          [ "$COUNT" -ge 5 ] || { echo "ERROR: fewer than 5 icons in repo"; exit 1; }
-
-          echo ""
-          echo "=== Manifest key lines ==="
-          grep -E "flutterEmbedding|android:icon|applicationName|AudioService|MediaButtonReceiver" \
-            android/app/src/main/AndroidManifest.xml
-
-          echo ""
-          echo "=== Verify v2 embedding ==="
-          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml \
-            || { echo "ERROR: flutterEmbedding missing"; exit 1; }
-          grep -q 'io.flutter.embedding.android.FlutterActivity' "$ACTIVITY" \
-            || { echo "ERROR: MainActivity not on v2 embedding"; exit 1; }
-          echo "OK: v2 embedding confirmed"
-
-          echo ""
-          echo "=== No v1 references anywhere ==="
-          if grep -rn 'io\.flutter\.app' android/app/src/ 2>/dev/null; then
-            echo "ERROR: v1 embedding references found above"
-            exit 1
-          fi
-          echo "OK: no v1 references"
-
-      - name: Get Dependencies
-        script: |
-          flutter clean
+          flutter pub upgrade
           flutter pub get
-
-      - name: Build APK
-        script: |
-          flutter build apk --release
-
-      - name: Verify APK Contents
-        script: |
-          set -e
-          APK=build/app/outputs/flutter-apk/app-release.apk
-
-          [ -f "$APK" ] || { echo "ERROR: APK not found"; exit 1; }
-          echo "=== APK size ==="; ls -lh "$APK"
-
-          echo ""
-          echo "=== Assets ==="
-          unzip -l "$APK" | grep -i "assets/icon" \
-            || { echo "ERROR: icon assets missing"; exit 1; }
-
-          echo ""
-          echo "=== Launcher icon ==="
-          unzip -l "$APK" | grep -q "mipmap.*ic_launcher" \
-            || { echo "ERROR: ic_launcher missing"; unzip -l "$APK" | grep mipmap || true; exit 1; }
-          echo "OK: ic_launcher bundled"
-
-          echo ""
-          echo "=== Manifest strings ==="
-          unzip -p "$APK" AndroidManifest.xml > /tmp/am.bin
-          FAIL=0
-
-          strings /tmp/am.bin | grep -qi "audioservice" \
-            && echo "OK: AudioService" \
-            || { echo "ERROR: AudioService missing"; FAIL=1; }
-
-          strings /tmp/am.bin | grep -qi "MediaButtonReceiver" \
-            && echo "OK: MediaButtonReceiver" \
-            || { echo "ERROR: MediaButtonReceiver missing"; FAIL=1; }
-
-          strings /tmp/am.bin | grep -q "FOREGROUND_SERVICE_MEDIA_PLAYBACK" \
-            && echo "OK: FGS_MEDIA_PLAYBACK" \
-            || echo "WARN: FGS_MEDIA_PLAYBACK missing"
-
-          strings /tmp/am.bin | grep -q "com.google.android.gms.ads.APPLICATION_ID" \
-            && echo "OK: AdMob app id" \
-            || { echo "ERROR: AdMob APPLICATION_ID missing"; FAIL=1; }
-
-          [ "$FAIL" -eq 0 ] || { echo ""; echo "=== Verification FAILED ==="; exit 1; }
-          echo ""
-          echo "=== All APK checks passed ==="
-
+          flutter build apk --release --verbose
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
