@@ -1,5 +1,16 @@
 .dart_tool/
+.packages
 .build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.idea/
+.vscode/
+*.iml
+ios/Pods/
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
 android/app/google-services.json
 
 mega-overflow-radio-app/

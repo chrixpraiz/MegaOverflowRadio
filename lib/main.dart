@@ -1,79 +1,1073 @@
-﻿import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
 
-void main() => runApp(const App());
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:http/http.dart' as http;
+import 'package:just_audio/just_audio.dart';
+import 'package:just_audio_background/just_audio_background.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class App extends StatelessWidget {
-  const App({super.key});
-  @override
-  Widget build(BuildContext context) => MaterialApp(debugShowCheckedModeBanner: false, themeMode: ThemeMode.dark, darkTheme: ThemeData.dark(), home: const RadioScreen());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'com.megaoverflow.megaoverflowradio',
+    androidNotificationChannelName: 'Mega Overflow Radio',
+    androidNotificationOngoing: true,
+  );
+  await MobileAds.instance.initialize();
+  runApp(const MegaOverflowApp());
 }
 
-class RadioScreen extends StatefulWidget {
-  const RadioScreen({super.key});
+class MegaOverflowApp extends StatefulWidget {
+  const MegaOverflowApp({super.key});
   @override
-  State<RadioScreen> createState() => _RadioScreenState();
+  State<MegaOverflowApp> createState() => _MegaOverflowAppState();
 }
 
-class _RadioScreenState extends State<RadioScreen> with SingleTickerProviderStateMixin {
-  final player = AudioPlayer();
+class _MegaOverflowAppState extends State<MegaOverflowApp> {
+  bool isDark = true;
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      darkTheme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+      ),
+      home: MainScreen(
+        onTheme: () => setState(() => isDark = !isDark),
+        isDark: isDark,
+      ),
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  final VoidCallback onTheme;
+  final bool isDark;
+  const MainScreen({super.key, required this.onTheme, required this.isDark});
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen>
+    with SingleTickerProviderStateMixin {
+  // ---- State ----
+  int currentView = 0;
+  final AudioPlayer player = AudioPlayer();
+  final AudioPlayer bookPlayer = AudioPlayer();
+
   bool isPlaying = false;
-  String title = "Mega Overflow Radio";
+  bool isLoading = false;
+  bool isBookPlaying = false;
+  String? activeBook; // track WHICH book is playing
+
+  double volume = 1.0;
+  bool isMuted = false;
+
+  String title = "MIDWEEK COMMUNION SERVICE";
   String artist = "Word, Worship and Wealth";
   String cover = "";
-  List history = [];
-  late AnimationController vinyl;
-  int tab = 0;
+  List<Map<String, dynamic>> history = [];
 
+  late AnimationController vinyl;
+  BannerAd? bannerAd;
+  bool isAdLoaded = false;
+  Timer? sleepTimer;
+  Timer? metaTimer;
+  int sleepMin = 0;
+
+  // ---- Controllers ----
+  final chatCtrl = TextEditingController();
+  final bibleSearchCtrl = TextEditingController();
+  final volName = TextEditingController();
+  final volPhone = TextEditingController();
+  final testName = TextEditingController();
+  final testMsg = TextEditingController();
+
+  List<Map<String, String>> chatMsgs = [
+    {
+      'user': 'Pastor Chris',
+      'msg': 'Welcome to Voice Altar! Share prayer, we pray 24/7'
+    },
+  ];
+  String bibleFilter = '';
+
+  // ---- Constants ----
+  static const String streamUrl = 'https://stream.radiojar.com/kks1y4wm7s8uv';
+  static const String metaUrl =
+      'https://www.radiojar.com/api/stations/kks1y4wm7s8uv/now_playing/';
+  static const String historyUrl =
+      'https://www.radiojar.com/api/stations/kks1y4wm7s8uv/tracks/';
+  static const String testBannerId = 'ca-app-pub-3940256099942544/6300978111';
+  static const String prodBannerId = 'ca-app-pub-1383337037822798/0000000000';
+
+  final List<String> tabNames = [
+    'Radio',
+    'Recently Played',
+    'Schedule',
+    'Sermons',
+    'E-Books',
+    'Audio Bible',
+    'Audiobooks',
+    'Chat & Voice Altar',
+    'Partner',
+    'Volunteer',
+    'Testimony',
+    'About Us',
+  ];
+  final List<IconData> tabIcons = [
+    Icons.radio,
+    Icons.history,
+    Icons.calendar_month,
+    Icons.mic,
+    Icons.menu_book,
+    Icons.headphones,
+    Icons.album,
+    Icons.chat_bubble,
+    Icons.handshake,
+    Icons.groups,
+    Icons.favorite,
+    Icons.info,
+  ];
+
+  final List<String> bibleBooks = [
+    "Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua",
+    "Judges", "Ruth", "1 Samuel", "2 Samuel", "1 Kings", "2 Kings",
+    "1 Chronicles", "2 Chronicles", "Ezra", "Nehemiah", "Esther", "Job",
+    "Psalms", "Proverbs", "Ecclesiastes", "Song of Solomon", "Isaiah",
+    "Jeremiah", "Lamentations", "Ezekiel", "Daniel", "Hosea", "Joel",
+    "Amos", "Obadiah", "Jonah", "Micah", "Nahum", "Habakkuk", "Zephaniah",
+    "Haggai", "Zechariah", "Malachi", "Matthew", "Mark", "Luke", "John",
+    "Acts", "Romans", "1 Corinthians", "2 Corinthians", "Galatians",
+    "Ephesians", "Philippians", "Colossians", "1 Thessalonians",
+    "2 Thessalonians", "1 Timothy", "2 Timothy", "Titus", "Philemon",
+    "Hebrews", "James", "1 Peter", "2 Peter", "1 John", "2 John", "3 John",
+    "Jude", "Revelation",
+  ];
+
+  List<String> get filteredBible => bibleBooks
+      .where((b) => b.toLowerCase().contains(bibleFilter.toLowerCase()))
+      .toList();
+
+  // ---- Lifecycle ----
   @override
   void initState() {
     super.initState();
-    vinyl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
-    vinyl.stop();
+    vinyl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    );
     fetchMeta();
-    Timer.periodic(const Duration(seconds: 20), (_) => fetchMeta());
-  }
-
-  Future<void> fetchMeta() async {
-    try {
-      final r = await http.get(Uri.parse('https://www.radiojar.com/api/stations/kks1y4wm7s8uv/now_playing/'));
-      if (r.statusCode == 200) {
-        final d = json.decode(r.body);
-        setState(() { title = d['track']??title; artist = d['artist']??artist; cover = d['thumb']??""; });
-      }
-      final h = await http.get(Uri.parse('https://www.radiojar.com/api/stations/kks1y4wm7s8uv/tracks/'));
-      if (h.statusCode == 200) setState(() => history = json.decode(h.body));
-    } catch(_){}
-  }
-
-  Future<void> toggle() async {
-    if (isPlaying) { await player.pause(); setState(() => isPlaying = false); vinyl.stop(); return; }
-    try {
-      await player.setAudioSource(AudioSource.uri(Uri.parse('https://stream.radiojar.com/kks1y4wm7s8uv')));
-      await player.play();
-      setState(() => isPlaying = true); vinyl.repeat();
-    } catch(e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error $e'))); }
+    metaTimer =
+        Timer.periodic(const Duration(seconds: 20), (_) => fetchMeta());
+    _loadAd();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final tabs = ['Radio','History','Schedule','Sermons','E-Books','Bible','Audiobooks','Chat','Partners','Volunteer','Testimony','About'];
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      drawer: Drawer(backgroundColor: const Color(0xFF111111), child: ListView(children: [const DrawerHeader(child: Text('MEGA OVERFLOW RADIO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20))), ...List.generate(tabs.length, (i) => ListTile(title: Text(tabs[i]), selected: tab==i, onTap: (){ setState(()=> tab=i); Navigator.pop(context);} )) ])),
-      appBar: AppBar(title: Text(tabs[tab]), backgroundColor: const Color(0xFF111111), actions: [Container(margin: const EdgeInsets.all(12), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(12)), child: const Text('LIVE', style: TextStyle(fontSize: 11)))]),
-      body: tab==0? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        RotationTransition(turns: vinyl, child: Container(width: 220, height: 220, decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF141414), border: Border.all(width: 8, color: Colors.black)), child: Center(child: ClipOval(child: cover.isNotEmpty? Image.network(cover, width: 110, height: 110, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(width:110,height:110,color: Colors.orange)) : Container(width:110,height:110,color: Colors.orange, child: const Icon(Icons.mic, size: 50)))))),
-        const SizedBox(height: 30),
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900), textAlign: TextAlign.center),
-        Text(artist, style: const TextStyle(color: Colors.purpleAccent)),
-        const SizedBox(height: 20),
-        ElevatedButton.icon(onPressed: toggle, icon: Icon(isPlaying? Icons.pause: Icons.play_arrow), label: Text(isPlaying? 'Pause':'Listen Live'), style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16))),
-      ])) : tab==1? ListView.builder(padding: const EdgeInsets.all(12), itemCount: history.length, itemBuilder: (_,i){ final t=history[i]; return Card(color: const Color(0xFF141414), child: ListTile(leading: Image.network(t['thumb']??'', width: 50, height: 50, errorBuilder: (_,__,___)=> Container(width:50,height:50,color: Colors.purple)), title: Text(t['track']??''), subtitle: Text(t['artist']??'', style: const TextStyle(color: Colors.purpleAccent)))); }) : Center(child: Text('${tabs[tab]} Coming Soon', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold))),
-      bottomNavigationBar: Container(height: 70, color: const Color(0xFF121212), padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, maxLines: 1, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), Text(artist, maxLines: 1, style: const TextStyle(fontSize: 10, color: Colors.purpleAccent))])), IconButton(onPressed: toggle, icon: Icon(isPlaying? Icons.pause_circle: Icons.play_circle, size: 45, color: Colors.deepPurple))]) ),
+  void dispose() {
+    metaTimer?.cancel();
+    sleepTimer?.cancel();
+    player.dispose();
+    bookPlayer.dispose();
+    vinyl.dispose();
+    bannerAd?.dispose();
+    chatCtrl.dispose();
+    bibleSearchCtrl.dispose();
+    volName.dispose();
+    volPhone.dispose();
+    testName.dispose();
+    testMsg.dispose();
+    super.dispose();
+  }
+
+  // ---- Ads ----
+  void _loadAd() {
+    try {
+      bannerAd = BannerAd(
+        adUnitId: kDebugMode ? testBannerId : prodBannerId,
+        size: AdSize.banner,
+        request: const AdRequest(),
+        listener: BannerAdListener(
+          onAdLoaded: (_) {
+            if (mounted) setState(() => isAdLoaded = true);
+          },
+          onAdFailedToLoad: (ad, err) {
+            debugPrint('Ad failed: $err');
+            ad.dispose();
+            if (mounted) setState(() => isAdLoaded = false);
+          },
+        ),
+      )..load();
+    } catch (e, st) {
+      debugPrint('Ad init failed: $e\n$st');
+    }
+  }
+
+  // ---- Metadata ----
+  Future<void> fetchMeta() async {
+    try {
+      final res = await http.get(Uri.parse(metaUrl));
+      if (res.statusCode == 200) {
+        final d = json.decode(res.body);
+        if (mounted && d is Map) {
+          setState(() {
+            title = d['track'] ?? d['title'] ?? title;
+            artist = d['artist'] ?? artist;
+            cover = d['thumb'] ?? cover;
+          });
+        }
+      }
+      final his = await http.get(Uri.parse(historyUrl));
+      if (his.statusCode == 200 && mounted) {
+        final decoded = json.decode(his.body);
+        if (decoded is List) {
+          history = decoded.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e, st) {
+      debugPrint('fetchMeta failed: $e\n$st');
+    }
+  }
+
+  // ---- Playback ----
+  Future<void> togglePlay() async {
+    if (isPlaying) {
+      await player.pause();
+      if (mounted) setState(() => isPlaying = false);
+      vinyl.stop();
+      return;
+    }
+    setState(() => isLoading = true);
+    try {
+      await player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(streamUrl),
+          tag: MediaItem(id: 'live', title: title, artist: artist),
+        ),
+      );
+      await player.setVolume(isMuted ? 0 : volume);
+      await player.play();
+      if (mounted) {
+        setState(() {
+          isPlaying = true;
+          isLoading = false;
+        });
+      }
+      vinyl.repeat();
+    } catch (e, st) {
+      debugPrint('Play failed: $e\n$st');
+      if (mounted) {
+        setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Stream offline, try again'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> toggleMute() async {
+    setState(() => isMuted = !isMuted);
+    await player.setVolume(isMuted ? 0 : volume);
+    await bookPlayer.setVolume(isMuted ? 0 : volume);
+  }
+
+  Future<void> setVolume(double v) async {
+    setState(() {
+      volume = v;
+      isMuted = v == 0;
+    });
+    await player.setVolume(v);
+    await bookPlayer.setVolume(v);
+  }
+
+  Future<void> playBook(String bookTitle) async {
+    try {
+      // Same book → stop
+      if (activeBook == bookTitle) {
+        await bookPlayer.stop();
+        if (mounted) setState(() => activeBook = null);
+        return;
+      }
+      await bookPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(streamUrl),
+          tag: MediaItem(
+            id: bookTitle,
+            title: bookTitle,
+            artist: 'Mega Overflow',
+          ),
+        ),
+      );
+      await bookPlayer.setVolume(isMuted ? 0 : volume);
+      await bookPlayer.play();
+      if (mounted) {
+        setState(() => activeBook = bookTitle);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Playing: $bookTitle'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e, st) {
+      debugPrint('playBook failed: $e\n$st');
+    }
+  }
+
+  void setSleepTimer(int mins) {
+    sleepTimer?.cancel();
+    if (mins == 0) {
+      setState(() => sleepMin = 0);
+      return;
+    }
+    setState(() => sleepMin = mins);
+    sleepTimer = Timer(Duration(minutes: mins), () async {
+      await player.pause();
+      await bookPlayer.pause();
+      if (mounted) {
+        setState(() {
+          isPlaying = false;
+          activeBook = null;
+          sleepMin = 0;
+        });
+      }
+      vinyl.stop();
+    });
+  }
+
+  // ---- Widgets ----
+  Widget logo([double? w, double? h]) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/icon/app_icon.png',
+        width: w,
+        height: h,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(
+          width: w,
+          height: h,
+          color: Colors.orange,
+          child: const Icon(Icons.radio, color: Colors.white),
+        ),
+      ),
     );
   }
+
+  Widget _launch(String url) {
+    return IconButton(
+      icon: const Icon(Icons.open_in_new),
+      onPressed: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+    );
+  }
+
+  // ---- Build ----
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      resizeToAvoidBottomInset: true,
+      drawer: _buildDrawer(),
+      appBar: _buildAppBar(),
+      body: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: currentView,
+              children: [
+                _radioView(),
+                _historyView(),
+                _scheduleView(),
+                _sermonsView(),
+                _ebooksView(),
+                _bibleView(),
+                _audiobooksView(),
+                _chatView(),
+                _partnersView(),
+                _volunteerView(),
+                _testimonyView(),
+                _aboutView(),
+              ],
+            ),
+          ),
+          if (isAdLoaded && bannerAd != null)
+            SizedBox(
+              height: bannerAd!.size.height.toDouble(),
+              width: bannerAd!.size.width.toDouble(),
+              child: AdWidget(ad: bannerAd!),
+            ),
+          _miniPlayer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawer() => Drawer(
+        backgroundColor: const Color(0xFF111111),
+        child: Column(
+          children: [
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF7B1FA2), Color(0xFFFF6F00)],
+                ),
+              ),
+              child: SafeArea(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    logo(80, 80),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'MEGA OVERFLOW',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                itemCount: tabNames.length,
+                itemBuilder: (c, i) => ListTile(
+                  leading: Icon(
+                    tabIcons[i],
+                    color:
+                        currentView == i ? Colors.orange : Colors.purpleAccent,
+                    size: 20,
+                  ),
+                  title:
+                      Text(tabNames[i], style: const TextStyle(fontSize: 12)),
+                  selected: currentView == i,
+                  onTap: () {
+                    setState(() => currentView = i);
+                    Navigator.pop(context);
+                  },
+                ),
+              ),
+            ),
+            ListTile(
+              leading:
+                  Icon(widget.isDark ? Icons.light_mode : Icons.dark_mode),
+              title: Text(widget.isDark ? 'Light Mode' : 'Dark Mode'),
+              onTap: widget.onTheme,
+            ),
+          ],
+        ),
+      );
+
+  AppBar _buildAppBar() => AppBar(
+        backgroundColor: const Color(0xFF111111),
+        title: Text(
+          tabNames[currentView],
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(isMuted ? Icons.volume_off : Icons.volume_up),
+            onPressed: toggleMute,
+          ),
+          PopupMenuButton<int>(
+            icon: Icon(
+              sleepMin > 0 ? Icons.timer : Icons.timer_outlined,
+              color: sleepMin > 0 ? Colors.orange : Colors.white,
+            ),
+            onSelected: setSleepTimer,
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 0, child: Text('Timer Off')),
+              PopupMenuItem(value: 15, child: Text('15 min')),
+              PopupMenuItem(value: 30, child: Text('30 min')),
+              PopupMenuItem(value: 60, child: Text('60 min')),
+            ],
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: Colors.red,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Center(
+              child: Text(
+                sleepMin > 0 ? '${sleepMin}m' : 'LIVE',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+
+  // ---- Views ----
+  Widget _radioView() => SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            RotationTransition(
+              turns: vinyl,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF141414),
+                  border:
+                      Border.all(color: const Color(0xFF2A2A2A), width: 10),
+                ),
+                child: Center(
+                  child: ClipOval(child: logo(120, 120)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon:
+                        Icon(isMuted ? Icons.volume_off : Icons.volume_down),
+                    onPressed: toggleMute,
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: volume,
+                      min: 0,
+                      max: 1,
+                      activeColor: Colors.deepPurple,
+                      onChanged: setVolume,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.volume_up),
+                    onPressed: () => setVolume(1.0),
+                  ),
+                  const Icon(Icons.bluetooth, color: Colors.cyan, size: 20),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            Text(artist, style: const TextStyle(color: Colors.purpleAccent)),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: isLoading ? null : togglePlay,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                icon: isLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Icon(isPlaying ? Icons.pause : Icons.play_arrow),
+                label: Text(isPlaying ? 'Pause Radio' : 'Listen Live'),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _historyView() => history.isEmpty
+      ? const Center(child: CircularProgressIndicator())
+      : ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: history.length,
+          itemBuilder: (_, i) {
+            final t = history[i];
+            return Card(
+              color: const Color(0xFF141414),
+              child: ListTile(
+                leading: logo(50, 50),
+                title: Text(
+                  t['track'] ?? 'Track',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                subtitle: Text(
+                  t['artist'] ?? '',
+                  style: const TextStyle(fontSize: 10),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.play_circle, color: Colors.orange),
+                  onPressed: togglePlay,
+                ),
+              ),
+            );
+          },
+        );
+
+  Widget _scheduleView() => ListView(
+        padding: const EdgeInsets.all(12),
+        children: const [
+          Card(
+            color: Color(0xFF141414),
+            child: ListTile(
+              title: Text('Morning Overflow - Mon-Fri 5AM'),
+              subtitle: Text('Pastor Chris Praiz'),
+            ),
+          ),
+          Card(
+            color: Color(0xFF141414),
+            child: ListTile(
+              title: Text('Worship Encounter - Mon-Fri 12PM'),
+              subtitle: Text('Min. Damitha'),
+            ),
+          ),
+        ],
+      );
+
+  Widget _sermonsView() => ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: 4,
+        itemBuilder: (_, i) => Card(
+          color: const Color(0xFF141414),
+          child: ListTile(
+            leading: logo(55, 55),
+            title: Text('Sermon ${i + 1}',
+                style: const TextStyle(fontSize: 12)),
+            trailing: const Icon(Icons.play_arrow, color: Colors.deepPurple),
+          ),
+        ),
+      );
+
+  Widget _ebooksView() => GridView.builder(
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.7,
+        ),
+        itemCount: 6,
+        itemBuilder: (_, i) => Card(
+          color: const Color(0xFF141414),
+          child: Column(
+            children: [
+              Expanded(
+                child: SizedBox.expand(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/icon/app_icon.png',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Container(color: Colors.orange),
+                    ),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(8),
+                child: Text('Overflow Principles',
+                    style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
+        ),
+      );
+
+  Widget _bibleView() => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: bibleSearchCtrl,
+              onChanged: (v) => setState(() => bibleFilter = v),
+              decoration: InputDecoration(
+                hintText: 'Search 66 books...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: const Color(0xFF141414),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              itemCount: filteredBible.length,
+              itemBuilder: (_, i) {
+                final b = filteredBible[i];
+                final isActive = activeBook == 'Audio Bible: $b';
+                return Card(
+                  color: const Color(0xFF141414),
+                  child: ListTile(
+                    title: Text(b, style: const TextStyle(fontSize: 13)),
+                    trailing: Icon(
+                      isActive ? Icons.stop : Icons.headphones,
+                      color: Colors.orange,
+                    ),
+                    onTap: () => playBook('Audio Bible: $b'),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      );
+
+  Widget _audiobooksView() => ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: 8,
+        itemBuilder: (_, i) {
+          final name = 'Kingdom Wealth Part ${i + 1}';
+          final isActive = activeBook == name;
+          return Card(
+            color: const Color(0xFF141414),
+            child: ListTile(
+              leading: logo(50, 50),
+              title: Text(name, style: const TextStyle(fontSize: 12)),
+              trailing: ElevatedButton(
+                onPressed: () => playBook(name),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isActive ? Colors.green : Colors.orange,
+                ),
+                child: Text(isActive ? 'Stop' : 'Play'),
+              ),
+            ),
+          );
+        },
+      );
+
+  Widget _chatView() => Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: chatMsgs.length,
+              itemBuilder: (_, i) {
+                final m = chatMsgs[i];
+                final isMe = m['user'] == 'You';
+                return Align(
+                  alignment:
+                      isMe ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isMe
+                          ? Colors.deepPurple
+                          : const Color(0xFF1A1A1A),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      m['msg']!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.mic, color: Colors.orange),
+                  onPressed: () async {
+                    final uri = Uri.parse(
+                        'https://wa.me/2340000000000?text=Voice%20Altar');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: chatCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Type prayer...',
+                      filled: true,
+                      fillColor: const Color(0xFF1E1E1E),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send, color: Colors.deepPurple),
+                  onPressed: () {
+                    if (chatCtrl.text.trim().isEmpty) return;
+                    setState(() {
+                      chatMsgs.add({'user': 'You', 'msg': chatCtrl.text});
+                      chatMsgs.add({
+                        'user': 'Pastor Chris',
+                        'msg': 'Praying: ${chatCtrl.text} 🙏',
+                      });
+                    });
+                    chatCtrl.clear();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+
+  Widget _partnersView() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Center(child: logo(80, 80)),
+          const SizedBox(height: 12),
+          const Text(
+            'Partner With Us - Tap tier',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          _partnerTile('Bronze ₦5k'),
+          _partnerTile('Silver ₦20k'),
+          _partnerTile('Gold ₦100k'),
+        ],
+      );
+
+  Widget _partnerTile(String label) => Card(
+        color: const Color(0xFF141414),
+        child: ListTile(
+          title: Text(label),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+          onTap: () async {
+            final uri = Uri.parse('https://paystack.com/pay/megaoverflow');
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+        ),
+      );
+
+  Widget _volunteerView() => Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView(
+          children: [
+            Center(child: logo(60, 60)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: volName,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                filled: true,
+                fillColor: const Color(0xFF141414),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: volPhone,
+              decoration: InputDecoration(
+                labelText: 'Phone',
+                filled: true,
+                fillColor: const Color(0xFF141414),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                if (volName.text.isEmpty) return;
+                final uri = Uri.parse(
+                    'https://wa.me/2340000000000?text=${Uri.encodeComponent("Volunteer: ${volName.text} ${volPhone.text}")}');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+              ),
+              child: const Text('Submit Volunteer'),
+            ),
+          ],
+        ),
+      );
+
+  Widget _testimonyView() => Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView(
+          children: [
+            Center(child: logo(60, 60)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: testName,
+              decoration: InputDecoration(
+                labelText: 'Name',
+                filled: true,
+                fillColor: const Color(0xFF141414),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: testMsg,
+              maxLines: 5,
+              decoration: InputDecoration(
+                labelText: 'Testimony',
+                filled: true,
+                fillColor: const Color(0xFF141414),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () async {
+                final uri = Uri.parse(
+                    'mailto:gcmega1@gmail.com?subject=Testimony%20${Uri.encodeComponent(testName.text)}&body=${Uri.encodeComponent(testMsg.text)}');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+              ),
+              child: const Text('Submit Testimony'),
+            ),
+          ],
+        ),
+      );
+
+  Widget _aboutView() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7B1FA2), Color(0xFFFF6F00)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'Mega Overflow Radio - Background Play + Bluetooth + Mute + Volume',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      );
+
+  Widget _miniPlayer() => Container(
+        height: 90,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: const BoxDecoration(
+          color: Color(0xFF121212),
+          border: Border(top: BorderSide(color: Colors.white10)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 24,
+              child: Slider(
+                value: volume,
+                min: 0,
+                max: 1,
+                activeColor: Colors.deepPurple,
+                inactiveColor: Colors.white12,
+                onChanged: setVolume,
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  logo(36, 36),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: Colors.purpleAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      isMuted ? Icons.volume_off : Icons.volume_up,
+                      size: 20,
+                    ),
+                    onPressed: toggleMute,
+                  ),
+                  isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : IconButton(
+                          onPressed: togglePlay,
+                          icon: Icon(
+                            isPlaying
+                                ? Icons.pause_circle_filled
+                                : Icons.play_circle_filled,
+                            size: 38,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 }
