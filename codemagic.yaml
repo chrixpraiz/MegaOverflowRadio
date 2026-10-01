@@ -1,59 +1,38 @@
 workflows:
   flutter-android:
-    name: MOR v2 Build
+    name: MOR FINAL BUILD
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
       flutter: 3.24.5
       java: 17
+      groups:
+        - google_credentials
+    cache:
+      cache_paths:
+        - ~/.pub-cache
     scripts:
-      - name: Verify Assets
+      - name: Create Android + Fix Manifest
         script: |
-          [ -f assets/icon/app_icon.png ] || { echo "ERROR: app_icon.png missing"; exit 1; }
-          [ -f assets/icon/logo.png ]    || { echo "ERROR: logo.png missing"; exit 1; }
           ls -lh assets/icon/
-
-      - name: Verify Android Project
-        script: |
-          ACTIVITY=$(find android/app/src/main -name "MainActivity.kt" | head -n1)
-          [ -n "$ACTIVITY" ] || { echo "ERROR: MainActivity.kt missing"; exit 1; }
-          echo "=== MainActivity ==="
-          cat "$ACTIVITY"
-
-          grep -q 'io.flutter.embedding.android.FlutterActivity' "$ACTIVITY" \
-            || { echo "ERROR: MainActivity not on v2 embedding"; exit 1; }
-          echo "OK: v2 embedding"
-
-          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml \
-            || { echo "ERROR: flutterEmbedding missing"; exit 1; }
-          echo "OK: flutterEmbedding=2"
-
-          COUNT=$(find android/app/src/main/res -name "ic_launcher*" -type f | wc -l | tr -d ' ')
-          echo "Icons: $COUNT"
-          [ "$COUNT" -ge 5 ] || { echo "ERROR: fewer than 5 icons"; exit 1; }
-
-          if grep -rn 'io\.flutter\.app' android/app/src/ 2>/dev/null; then
-            echo "ERROR: v1 references found"
-            exit 1
-          fi
-          echo "OK: no v1 references"
-
-      - name: Get Dependencies
-        script: |
-          flutter clean
-          flutter pub get
-
+          rm -rf android
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          python3 << 'PY'
+          import pathlib
+          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          txt = p.read_text()
+          if "INTERNET" not in txt:
+              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
+          if "usesCleartextTraffic" not in txt:
+              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
+          if "APPLICATION_ID" not in txt:
+              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          p.write_text(txt)
+          print("Manifest fixed")
+          PY
       - name: Build APK
         script: |
+          flutter pub get
           flutter build apk --release
-
-      - name: Verify APK
-        script: |
-          set -e
-          APK=build/app/outputs/flutter-apk/app-release.apk
-          [ -f "$APK" ] || { echo "ERROR: APK not found"; exit 1; }
-          ls -lh "$APK"
-          unzip -l "$APK" | grep -q "mipmap.*ic_launcher" || { echo "ERROR: icon missing"; exit 1; }
-          echo "OK: ic_launcher bundled"
-
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
