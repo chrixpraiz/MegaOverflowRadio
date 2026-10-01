@@ -1,51 +1,39 @@
 workflows:
   flutter-android:
-    name: MOR WITH MANIFEST
+    name: MOR v1 FIX
     instance_type: mac_mini_m2
     environment:
-      flutter: 3.24.5
+      flutter: 3.22.3
       java: 17
     scripts:
-      - name: Prepare Android
+      - name: Clean + Create Android v2
         script: |
-          if [ ! -f "android/app/src/main/AndroidManifest.xml" ]; then
-            flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-          fi
-          # Now overwrite with our custom manifest
-          cat > android/app/src/main/AndroidManifest.xml <<'MANIFEST'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
-              <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-              <uses-permission android:name="android.permission.WAKE_LOCK" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-              <uses-permission android:name="android.permission.BLUETOOTH" />
-              <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-              <application
-                  android:label="Mega Overflow"
-                  android:name="${applicationName}"
-                  android:icon="@mipmap/launcher_icon"
-                  android:usesCleartextTraffic="true">
-                  <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>
-                  <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
-                      <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
-                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-                  </activity>
-                  <service android:name="com.ryanheise.audioservice.AudioService" android:foregroundServiceType="mediaPlayback" android:exported="false"><intent-filter><action android:name="android.media.browse.MediaBrowserService" /></intent-filter></service>
-                  <service android:name="com.ryanheise.just_audio_background.ActionsService" android:exported="false" />
-                  <receiver android:name="com.ryanheise.just_audio_background.ActionsReceiver" android:exported="false" />
-                  <meta-data android:name="flutterEmbedding" android:value="2" />
-              </application>
-              <queries><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent><intent><action android:name="android.intent.action.VIEW"/><data android:scheme="http"/></intent><intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="mailto"/></intent></queries>
-          </manifest>
-          MANIFEST
-          cat android/app/src/main/AndroidManifest.xml
+          rm -rf android
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
+          # Inject permissions + AdMob + cleartext
+          python3 << 'PY'
+          import pathlib
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t = m.read_text()
+          # Add permissions
+          if "FOREGROUND_SERVICE_MEDIA_PLAYBACK" not in t:
+              t = t.replace("<application", '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
+          if "usesCleartextTraffic" not in t:
+              t = t.replace("<application", '    <application android:usesCleartextTraffic="true"')
+          if "APPLICATION_ID" not in t:
+              t = t.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          m.write_text(t)
+          print("Manifest injected")
+          # Check MainActivity is v2
+          import glob
+          for f in glob.glob("android/**/MainActivity.*", recursive=True):
+              print(f, open(f).read()[:500])
+          PY
 
       - name: Build APK
         script: |
           flutter pub get
-          flutter build apk --release --verbose
+          flutter build apk --release
 
     artifacts:
       - build/app/outputs/flutter-apk/*.apk

@@ -6,17 +6,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  just_audio: ^0.9.46
-  just_audio_background: ^0.0.1-beta.15
-  audio_session: ^0.1.23
-  audio_service: ^0.18.14
+  just_audio: ^0.9.40
+  just_audio_background: ^0.0.1-beta.14
+  audio_session: ^0.1.21
+  audio_service: ^0.18.12
   http: ^1.1.2
-  url_launcher: ^6.2.5
-  google_mobile_ads: ^5.3.1
+  url_launcher: ^6.2.0
+  google_mobile_ads: ^5.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
 flutter:
   uses-material-design: true
   assets:
