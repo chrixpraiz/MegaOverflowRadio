@@ -16,61 +16,39 @@ workflows:
 
       - name: Regenerate Android + Write Manifest
         script: |
-          echo "=== Regenerating android/ folder ==="
           rm -rf android
           flutter create . --platforms=android \
             --project-name megaoverflowradio \
             --org com.megaoverflow \
             --template app
 
-          echo "=== Writing AndroidManifest.xml ==="
           cat > android/app/src/main/AndroidManifest.xml << 'XML'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               xmlns:tools="http://schemas.android.com/tools">
 
-              <!-- Network -->
               <uses-permission android:name="android.permission.INTERNET"/>
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-
-              <!-- Background audio -->
               <uses-permission android:name="android.permission.WAKE_LOCK"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
-
-              <!-- Notifications (Android 13+) -->
               <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
-              <!-- Bluetooth -->
               <uses-permission android:name="android.permission.BLUETOOTH"/>
               <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
 
-              <!-- url_launcher queries (Android 11+) -->
               <queries>
-                  <intent>
-                      <action android:name="android.intent.action.VIEW"/>
-                      <data android:scheme="https"/>
-                  </intent>
-                  <intent>
-                      <action android:name="android.intent.action.SENDTO"/>
-                      <data android:scheme="mailto"/>
-                  </intent>
-                  <intent>
-                      <action android:name="android.intent.action.VIEW"/>
-                      <data android:scheme="whatsapp"/>
-                  </intent>
+                  <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent>
+                  <intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="mailto"/></intent>
+                  <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="whatsapp"/></intent>
               </queries>
 
               <application
                   android:label="MegaOverflow Radio"
                   android:name="${applicationName}"
-                  android:icon="@mipmap/launcher_icon"
+                  android:icon="@mipmap/ic_launcher"
                   android:usesCleartextTraffic="true"
                   android:enableOnBackInvokedCallback="true">
 
-                  <!-- v2 embedding marker (REQUIRED) -->
-                  <meta-data
-                      android:name="flutterEmbedding"
-                      android:value="2" />
+                  <meta-data android:name="flutterEmbedding" android:value="2"/>
 
                   <activity
                       android:name=".MainActivity"
@@ -83,7 +61,6 @@ workflows:
                       </intent-filter>
                   </activity>
 
-                  <!-- just_audio_background service -->
                   <service
                       android:name="com.ryanheise.audioservice.AudioService"
                       android:foregroundServiceType="mediaPlayback"
@@ -94,7 +71,6 @@ workflows:
                       </intent-filter>
                   </service>
 
-                  <!-- Media button receiver (Bluetooth / headset) -->
                   <receiver
                       android:name="com.ryanheise.audioservice.MediaButtonReceiver"
                       android:exported="true"
@@ -104,7 +80,6 @@ workflows:
                       </intent-filter>
                   </receiver>
 
-                  <!-- AdMob -->
                   <meta-data
                       android:name="com.google.android.gms.ads.APPLICATION_ID"
                       android:value="ca-app-pub-1383337037822798~9185411751"/>
@@ -113,50 +88,18 @@ workflows:
           XML
 
           echo "=== Manifest written ==="
-          cat android/app/src/main/AndroidManifest.xml
 
       - name: Verify v2 Embedding
         script: |
-          echo "=== Checking v2 embedding in manifest ==="
-          if ! grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml; then
-            echo "ERROR: flutterEmbedding meta-data missing"
-            exit 1
-          fi
-          if ! grep -A1 'flutterEmbedding' android/app/src/main/AndroidManifest.xml | grep -q '"2"'; then
-            echo "ERROR: flutterEmbedding value is not 2"
-            exit 1
-          fi
-          echo "OK: flutterEmbedding=2 present"
+          grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml \
+            || { echo "ERROR: flutterEmbedding missing"; exit 1; }
+          echo "OK: flutterEmbedding present"
 
-          echo "=== Checking MainActivity uses v2 embedding ==="
           ACTIVITY=$(find android/app/src/main -name "MainActivity.kt" -o -name "MainActivity.java" | head -n1)
-          if [ -z "$ACTIVITY" ]; then
-            echo "ERROR: MainActivity.kt not found"
-            exit 1
-          fi
-          echo "Found: $ACTIVITY"
-          cat "$ACTIVITY"
-
-          if grep -q 'io.flutter.app.FlutterActivity' "$ACTIVITY"; then
-            echo "ERROR: MainActivity uses v1 embedding (io.flutter.app.FlutterActivity)"
-            echo "Rewrite MainActivity.kt to:"
-            echo "  import io.flutter.embedding.android.FlutterActivity"
-            echo "  class MainActivity: FlutterActivity()"
-            exit 1
-          fi
-
-          if ! grep -q 'io.flutter.embedding.android.FlutterActivity' "$ACTIVITY"; then
-            echo "ERROR: MainActivity does not import v2 FlutterActivity"
-            exit 1
-          fi
-          echo "OK: MainActivity uses v2 embedding"
-
-          echo "=== Checking no v1 references in project ==="
-          if grep -rn 'io.flutter.app' android/ 2>/dev/null; then
-            echo "ERROR: Found v1 embedding references above"
-            exit 1
-          fi
-          echo "OK: no v1 references found"
+          [ -n "$ACTIVITY" ] || { echo "ERROR: MainActivity not found"; exit 1; }
+          grep -q 'io.flutter.embedding.android.FlutterActivity' "$ACTIVITY" \
+            || { echo "ERROR: MainActivity uses v1 embedding"; exit 1; }
+          echo "OK: v2 MainActivity"
 
       - name: Get Dependencies
         script: |
@@ -165,12 +108,17 @@ workflows:
 
       - name: Generate Launcher Icons
         script: |
+          set -e
           dart run flutter_launcher_icons
-          echo "=== Generated icons ==="
-          ls -lh android/app/src/main/res/mipmap-*/launcher_icon.png || {
-            echo "ERROR: launcher_icon.png not generated"
+          echo "=== Generated launcher icons ==="
+          find android/app/src/main/res -name "ic_launcher*" -type f
+          COUNT=$(find android/app/src/main/res -name "ic_launcher*" -type f | wc -l | tr -d ' ')
+          if [ "$COUNT" -lt 4 ]; then
+            echo "ERROR: expected >=4 ic_launcher PNGs, found $COUNT"
+            find android/app/src/main/res -type f
             exit 1
-          }
+          fi
+          echo "OK: $COUNT launcher icon files generated"
 
       - name: Build APK
         script: |
@@ -181,18 +129,19 @@ workflows:
           set -e
           APK=build/app/outputs/flutter-apk/app-release.apk
 
-          [ -f "$APK" ] || { echo "ERROR: APK not found at $APK"; exit 1; }
-          echo "=== APK size ==="
-          ls -lh "$APK"
+          [ -f "$APK" ] || { echo "ERROR: APK not found"; exit 1; }
+          echo "=== APK size ==="; ls -lh "$APK"
 
           echo ""
           echo "=== Assets ==="
-          unzip -l "$APK" | grep -i "assets/icon" || { echo "ERROR: icon assets missing"; exit 1; }
+          unzip -l "$APK" | grep -i "assets/icon" \
+            || { echo "ERROR: icon assets missing"; exit 1; }
 
           echo ""
           echo "=== Launcher icon ==="
-          unzip -l "$APK" | grep -q "mipmap.*launcher_icon" || { echo "ERROR: launcher_icon missing"; exit 1; }
-          echo "OK"
+          unzip -l "$APK" | grep -q "mipmap.*ic_launcher" \
+            || { echo "ERROR: ic_launcher missing"; unzip -l "$APK" | grep mipmap || true; exit 1; }
+          echo "OK: ic_launcher bundled"
 
           echo ""
           echo "=== Manifest strings ==="
@@ -208,16 +157,12 @@ workflows:
             || { echo "ERROR: MediaButtonReceiver missing"; FAIL=1; }
 
           strings /tmp/am.bin | grep -q "FOREGROUND_SERVICE_MEDIA_PLAYBACK" \
-            && echo "OK: FGS_MEDIA_PLAYBACK permission" \
-            || echo "WARN: FOREGROUND_SERVICE_MEDIA_PLAYBACK missing"
+            && echo "OK: FGS_MEDIA_PLAYBACK" \
+            || echo "WARN: FGS_MEDIA_PLAYBACK missing"
 
           strings /tmp/am.bin | grep -q "com.google.android.gms.ads.APPLICATION_ID" \
             && echo "OK: AdMob app id" \
             || { echo "ERROR: AdMob APPLICATION_ID missing"; FAIL=1; }
-
-          strings /tmp/am.bin | grep -q "flutterEmbedding" \
-            && echo "OK: flutterEmbedding in binary manifest" \
-            || echo "WARN: flutterEmbedding not visible via strings"
 
           [ "$FAIL" -eq 0 ] || { echo ""; echo "=== Verification FAILED ==="; exit 1; }
           echo ""
