@@ -14,23 +14,39 @@ workflows:
           ls -lh assets/icon/
           echo "=== Assets OK ==="
 
-      - name: Verify Icons In Place
+      - name: Verify Android Project
         script: |
-          echo "=== Icons in android/app/src/main/res/ ==="
+          echo "=== MainActivity ==="
+          find android/app/src/main -name "MainActivity.*" -exec cat {} \;
+
+          echo ""
+          echo "=== Icons ==="
           find android/app/src/main/res -name "ic_launcher*" -type f | sort
           COUNT=$(find android/app/src/main/res -name "ic_launcher*" -type f | wc -l | tr -d ' ')
           echo "Found $COUNT icon files"
           [ "$COUNT" -ge 5 ] || { echo "ERROR: fewer than 5 icons in repo"; exit 1; }
 
           echo ""
-          echo "=== Manifest icon reference ==="
-          grep "android:icon" android/app/src/main/AndroidManifest.xml
+          echo "=== Manifest key lines ==="
+          grep -E "flutterEmbedding|android:icon|applicationName|AudioService|MediaButtonReceiver" \
+            android/app/src/main/AndroidManifest.xml
 
           echo ""
-          echo "=== flutterEmbedding check ==="
+          echo "=== Verify v2 embedding ==="
           grep -q 'flutterEmbedding' android/app/src/main/AndroidManifest.xml \
             || { echo "ERROR: flutterEmbedding missing"; exit 1; }
-          echo "OK: flutterEmbedding=2 present"
+          grep -q 'io.flutter.embedding.android.FlutterActivity' \
+            $(find android/app/src/main -name "MainActivity.kt" -o -name "MainActivity.java") \
+            || { echo "ERROR: MainActivity not on v2 embedding"; exit 1; }
+          echo "OK: v2 embedding confirmed"
+
+          echo ""
+          echo "=== No v1 references anywhere ==="
+          if grep -rn 'io\.flutter\.app' android/app/src/ 2>/dev/null; then
+            echo "ERROR: v1 embedding references found above"
+            exit 1
+          fi
+          echo "OK: no v1 references"
 
       - name: Get Dependencies
         script: |
