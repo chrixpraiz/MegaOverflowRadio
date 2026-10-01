@@ -1,34 +1,27 @@
 workflows:
   flutter-android:
-    name: MOR FINAL BUILD
+    name: MOR FINAL
     instance_type: mac_mini_m2
-    max_build_duration: 60
     environment:
       flutter: 3.24.5
       java: 17
-      groups:
-        - google_credentials
-    cache:
-      cache_paths:
-        - ~/.pub-cache
     scripts:
-      - name: Create Android + Fix Manifest
+      - name: Create Android
         script: |
-          ls -lh assets/icon/
           rm -rf android
           flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --template app
           python3 << 'PY'
           import pathlib
-          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          txt = p.read_text()
-          if "INTERNET" not in txt:
-              txt = txt.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
-          if "usesCleartextTraffic" not in txt:
-              txt = txt.replace("<application", '    <application android:usesCleartextTraffic="true"')
-          if "APPLICATION_ID" not in txt:
-              txt = txt.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
-          p.write_text(txt)
-          print("Manifest fixed")
+          m = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t = m.read_text()
+          if "INTERNET" not in t:
+              t = t.replace("<application", '    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <application')
+          if "usesCleartextTraffic" not in t:
+              t = t.replace("<application", '    <application android:usesCleartextTraffic="true"')
+          if "APPLICATION_ID" not in t:
+              t = t.replace("<application", '    <application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          m.write_text(t)
+          print("Manifest OK")
           PY
       - name: Build APK
         script: |
