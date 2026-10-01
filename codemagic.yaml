@@ -109,16 +109,79 @@ workflows:
       - name: Generate Launcher Icons
         script: |
           set -e
-          dart run flutter_launcher_icons
-          echo "=== Generated launcher icons ==="
-          find android/app/src/main/res -name "ic_launcher*" -type f
+          pip3 install --quiet Pillow
+
+          python3 << 'PY'
+          import os
+          from PIL import Image
+
+          SRC = "assets/icon/app_icon.png"
+          if not os.path.exists(SRC):
+              raise SystemExit(f"ERROR: {SRC} missing")
+
+          img = Image.open(SRC).convert("RGBA")
+          print(f"Source icon: {img.size} {img.mode}")
+
+          base = "android/app/src/main/res"
+
+          # Legacy launcher icons (pre-API 26)
+          for folder, size in {
+              "mipmap-mdpi":    48,
+              "mipmap-hdpi":    72,
+              "mipmap-xhdpi":   96,
+              "mipmap-xxhdpi":  144,
+              "mipmap-xxxhdpi": 192,
+          }.items():
+              d = os.path.join(base, folder)
+              os.makedirs(d, exist_ok=True)
+              img.resize((size, size), Image.LANCZOS).save(
+                  os.path.join(d, "ic_launcher.png"), "PNG")
+              print(f"  {folder}/ic_launcher.png ({size}x{size})")
+
+          # Adaptive icon foreground (API 26+)
+          for folder, size in {
+              "drawable-mdpi":    108,
+              "drawable-hdpi":    162,
+              "drawable-xhdpi":   216,
+              "drawable-xxhdpi":  324,
+              "drawable-xxxhdpi": 432,
+          }.items():
+              d = os.path.join(base, folder)
+              os.makedirs(d, exist_ok=True)
+              img.resize((size, size), Image.LANCZOS).save(
+                  os.path.join(d, "ic_launcher_foreground.png"), "PNG")
+              print(f"  {folder}/ic_launcher_foreground.png ({size}x{size})")
+
+          # Adaptive icon XML
+          anydpi = os.path.join(base, "mipmap-anydpi-v26")
+          os.makedirs(anydpi, exist_ok=True)
+          with open(os.path.join(anydpi, "ic_launcher.xml"), "w") as f:
+              f.write('<?xml version="1.0" encoding="utf-8"?>\n')
+              f.write('<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n')
+              f.write('    <background android:drawable="@color/ic_launcher_background"/>\n')
+              f.write('    <foreground android:drawable="@drawable/ic_launcher_foreground"/>\n')
+              f.write('</adaptive-icon>\n')
+          print("  mipmap-anydpi-v26/ic_launcher.xml")
+
+          # Background color resource
+          values = os.path.join(base, "values")
+          os.makedirs(values, exist_ok=True)
+          with open(os.path.join(values, "colors.xml"), "w") as f:
+              f.write('<?xml version="1.0" encoding="utf-8"?>\n')
+              f.write('<resources>\n')
+              f.write('    <color name="ic_launcher_background">#0A0A0A</color>\n')
+              f.write('</resources>\n')
+          print("  values/colors.xml")
+
+          print("DONE")
+          PY
+
+          echo ""
+          echo "=== Generated files ==="
+          find android/app/src/main/res -name "ic_launcher*" -type f | sort
           COUNT=$(find android/app/src/main/res -name "ic_launcher*" -type f | wc -l | tr -d ' ')
-          if [ "$COUNT" -lt 4 ]; then
-            echo "ERROR: expected >=4 ic_launcher PNGs, found $COUNT"
-            find android/app/src/main/res -type f
-            exit 1
-          fi
-          echo "OK: $COUNT launcher icon files generated"
+          echo "Total: $COUNT"
+          [ "$COUNT" -ge 5 ] || { echo "ERROR: fewer than 5 icons"; exit 1; }
 
       - name: Build APK
         script: |
