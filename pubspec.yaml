@@ -12,7 +12,7 @@ dependencies:
   audio_service: ^0.18.12
   http: ^1.1.2
   url_launcher: ^6.2.0
-  google_mobile_ads: ^5.0.0
+  google_mobile_ads: ^4.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
