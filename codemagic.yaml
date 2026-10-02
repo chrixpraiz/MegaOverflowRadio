@@ -1,58 +1,36 @@
 workflows:
   flutter-android:
-    name: MOR FINAL FIXED
+    name: MOR BLACKSCREEN FIX
     instance_type: mac_mini_m2
     environment:
       flutter: 3.22.3
       java: 17
     scripts:
-      - name: Create Android + Icon Config
+      - name: Create Android
         script: |
           rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-          cat > flutter_launcher_icons.yaml << 'YAML'
-          flutter_icons:
+          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          echo 'flutter_icons:
             android: true
             ios: false
-            image_path: "assets/icon/app_icon.png"
-            min_sdk_android: 21
-            web:
-              generate: false
-          YAML
-          cat flutter_launcher_icons.yaml
-
-      - name: Generate Valid Icons
+            image_path: "assets/icon/app_icon.png"' > flutter_launcher_icons.yaml
+      - name: Icons + Build
         script: |
           flutter pub get
-          dart run flutter_launcher_icons
-          ls -lh android/app/src/main/res/mipmap-*/ic_launcher.png
-
-      - name: Fix Manifest Name + Permissions + HTTP
-        script: |
-          find android -name "*.gradle*" -type f -exec sed -i '' 's/1\.7\.10/1.9.22/g; s/1\.8\.10/1.9.22/g' {} \; 2>/dev/null || true
+          dart run flutter_launcher_icons || true
           python3 << 'PY'
           import pathlib
           p=pathlib.Path("android/app/src/main/AndroidManifest.xml")
           t=p.read_text()
-          # FIX APP NAME
           t=t.replace('android:label="megaoverflowradio"', 'android:label="Mega Overflow Radio"')
-          if 'android:label="Mega Overflow Radio"' not in t:
-              t=t.replace('<application', '<application android:label="Mega Overflow Radio"')
-          # Permissions
-          if "FOREGROUND_SERVICE_MEDIA_PLAYBACK" not in t:
-              t=t.replace("<application", ' <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n <application')
+          if 'Mega Overflow Radio' not in t:
+            t=t.replace('<application', '<application android:label="Mega Overflow Radio"')
           t=t.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
-          if "usesCleartextTraffic" not in t:
-              t=t.replace("<application", '<application android:usesCleartextTraffic="true"')
-          if "com.google.android.gms.ads.APPLICATION_ID" not in t:
-              t=t.replace("<application", '<application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
-          t=t.replace("@mipmap/launcher_icon", "@mipmap/ic_launcher")
+          if 'usesCleartextTraffic' not in t:
+            t=t.replace('<application', '<application android:usesCleartextTraffic="true"')
+          t=t.replace('@mipmap/launcher_icon', '@mipmap/ic_launcher')
           p.write_text(t)
-          print(t[:2000])
           PY
-
-      - name: Build APK
-        script: flutter build apk --release
-
+          flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
