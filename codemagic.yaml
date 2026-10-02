@@ -1,49 +1,58 @@
 workflows:
   flutter-android:
-    name: MOR NAME LOGO STREAM FIX
+    name: MOR FINAL FIXED
     instance_type: mac_mini_m2
     environment:
       flutter: 3.22.3
       java: 17
     scripts:
-      - name: Create Android
+      - name: Create Android + Icon Config
         script: |
           rm -rf android
-          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          cat > flutter_launcher_icons.yaml << 'YAML'
+          flutter_icons:
+            android: true
+            ios: false
+            image_path: "assets/icon/app_icon.png"
+            min_sdk_android: 21
+            web:
+              generate: false
+          YAML
+          cat flutter_launcher_icons.yaml
 
-      - name: Generate Icons + Fix Name
+      - name: Generate Valid Icons
         script: |
           flutter pub get
           dart run flutter_launcher_icons
-          
-          # FIX APP NAME from com.megaoverflow... to Mega Overflow Radio
+          ls -lh android/app/src/main/res/mipmap-*/ic_launcher.png
+
+      - name: Fix Manifest Name + Permissions + HTTP
+        script: |
+          find android -name "*.gradle*" -type f -exec sed -i '' 's/1\.7\.10/1.9.22/g; s/1\.8\.10/1.9.22/g' {} \; 2>/dev/null || true
           python3 << 'PY'
           import pathlib
-          manifest = pathlib.Path("android/app/src/main/AndroidManifest.xml").read_text()
-          # Force label
-          manifest = manifest.replace('android:label="megaoverflowradio"', 'android:label="Mega Overflow Radio"')
-          manifest = manifest.replace('android:label="megaoverflow_radio"', 'android:label="Mega Overflow Radio"')
-          # If no label, add it
-          if 'Mega Overflow Radio' not in manifest:
-              manifest = manifest.replace('<application', '<application android:label="Mega Overflow Radio"')
-          # HTTP + Foreground + AdMob
-          if "FOREGROUND_SERVICE_MEDIA_PLAYBACK" not in manifest:
-              manifest = manifest.replace("<application", '    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application')
-          manifest = manifest.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
-          if "usesCleartextTraffic" not in manifest:
-              manifest = manifest.replace("<application", '<application android:usesCleartextTraffic="true"')
-          if "APPLICATION_ID" not in manifest:
-              manifest = manifest.replace("<application", '<application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
-          manifest = manifest.replace("@mipmap/launcher_icon", "@mipmap/ic_launcher")
-          pathlib.Path("android/app/src/main/AndroidManifest.xml").write_text(manifest)
-          print(manifest)
+          p=pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t=p.read_text()
+          # FIX APP NAME
+          t=t.replace('android:label="megaoverflowradio"', 'android:label="Mega Overflow Radio"')
+          if 'android:label="Mega Overflow Radio"' not in t:
+              t=t.replace('<application', '<application android:label="Mega Overflow Radio"')
+          # Permissions
+          if "FOREGROUND_SERVICE_MEDIA_PLAYBACK" not in t:
+              t=t.replace("<application", ' <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />\n <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n <application')
+          t=t.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
+          if "usesCleartextTraffic" not in t:
+              t=t.replace("<application", '<application android:usesCleartextTraffic="true"')
+          if "com.google.android.gms.ads.APPLICATION_ID" not in t:
+              t=t.replace("<application", '<application>\n <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          t=t.replace("@mipmap/launcher_icon", "@mipmap/ic_launcher")
+          p.write_text(t)
+          print(t[:2000])
           PY
-          
-          # Fix Kotlin
-          find android -name "*.gradle*" -type f -exec sed -i '' 's/1\.7\.10/1.9.22/g; s/1\.8\.10/1.9.22/g' {} \; 2>/dev/null || true
 
       - name: Build APK
-        script: flutter build apk --release --no-tree-shake-icons
+        script: flutter build apk --release
 
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
