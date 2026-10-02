@@ -1,36 +1,63 @@
 workflows:
   flutter-android:
-    name: MOR BLACKSCREEN FIX
+    name: MOR FIXED GRADLE
     instance_type: mac_mini_m2
+    max_build_duration: 30
     environment:
       flutter: 3.22.3
       java: 17
     scripts:
-      - name: Create Android
+      - name: Clean and Recreate Android
         script: |
           rm -rf android
-          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow
-          echo 'flutter_icons:
-            android: true
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow --no-pub
+          ls -lh android/app/src/main/AndroidManifest.xml
+
+      - name: Create Icons Config
+        script: |
+          cat > flutter_launcher_icons.yaml << 'YAML'
+          flutter_launcher_icons:
+            android: "launcher_icon"
             ios: false
-            image_path: "assets/icon/app_icon.png"' > flutter_launcher_icons.yaml
-      - name: Icons + Build
+            image_path: "assets/icon/app_icon.png"
+            min_sdk_android: 21
+          YAML
+          cat flutter_launcher_icons.yaml
+
+      - name: Pub Get + Generate Icons
         script: |
           flutter pub get
-          dart run flutter_launcher_icons || true
+          dart run flutter_launcher_icons
+
+      - name: Fix Manifest Name + HTTP + Ads
+        script: |
           python3 << 'PY'
           import pathlib
-          p=pathlib.Path("android/app/src/main/AndroidManifest.xml")
-          t=p.read_text()
-          t=t.replace('android:label="megaoverflowradio"', 'android:label="Mega Overflow Radio"')
+          p = pathlib.Path("android/app/src/main/AndroidManifest.xml")
+          t = p.read_text()
+          # Fix name
+          t = t.replace('android:label="megaoverflowradio"', 'android:label="Mega Overflow Radio"')
           if 'Mega Overflow Radio' not in t:
-            t=t.replace('<application', '<application android:label="Mega Overflow Radio"')
-          t=t.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
+              t = t.replace('<application', '<application android:label="Mega Overflow Radio"')
+          # HTTP for radiojar http stream
+          t = t.replace('android:usesCleartextTraffic="false"', 'android:usesCleartextTraffic="true"')
           if 'usesCleartextTraffic' not in t:
-            t=t.replace('<application', '<application android:usesCleartextTraffic="true"')
-          t=t.replace('@mipmap/launcher_icon', '@mipmap/ic_launcher')
+              t = t.replace('<application', '<application android:usesCleartextTraffic="true"')
+          # AdMob
+          if 'com.google.android.gms.ads.APPLICATION_ID' not in t:
+              t = t.replace('<application', '<application>\n        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>\n')
+          # Icon fix
+          t = t.replace('@mipmap/launcher_icon', '@mipmap/ic_launcher')
+          t = t.replace('@mipmap/launcher_icon', '@mipmap/launcher_icon')
+          # Use ic_launcher if exists, else launcher_icon
           p.write_text(t)
+          print("Manifest fixed")
+          print(t[:2500])
           PY
-          flutter build apk --release
+
+      - name: Build APK
+        script: |
+          flutter build apk --release --no-tree-shake-icons
+
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
