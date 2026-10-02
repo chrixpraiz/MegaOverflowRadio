@@ -9,7 +9,7 @@ workflows:
       - name: Create Android + Icon Config
         script: |
           rm -rf android
-          flutter create. --platforms=android --project-name megaoverflowradio --org com.megaoverflow
+          flutter create . --platforms=android --project-name megaoverflowradio --org com.megaoverflow
           cat > flutter_launcher_icons.yaml << 'YAML'
           flutter_icons:
             android: true
